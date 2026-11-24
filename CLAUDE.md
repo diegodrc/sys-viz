@@ -8,10 +8,9 @@ relevantes à tarefa (mapa abaixo), não o arquivo inteiro.
 
 ## Estado atual
 
-Etapas 1–9 concluídas (scaffold; schema/validate; `graph/`; storage + store + sidebar +
-importar/exportar/backup; canvas React Flow + ELK; painel de detalhes + edição; fluxos; navegação;
-"Gerar com IA" + Sobre/Ajuda). Próxima etapa = **etapa 10 da seção 14** (PWA + HTML único +
-verificação dos critérios A1–A21). Plano e checklist: [tasks/plan.md](tasks/plan.md), [tasks/todo.md](tasks/todo.md). Atualize esta linha ao
+Etapas 1–10 implementadas. Critérios A1–A21: ver [tasks/acceptance.md](tasks/acceptance.md) —
+pendentes só verificações manuais (A18 via `file://`, A19 instalação PWA) e a meta de desempenho
+(§11), não atingida no navegador embutido. Plano e checklist: [tasks/plan.md](tasks/plan.md), [tasks/todo.md](tasks/todo.md). Atualize esta linha ao
 concluir cada etapa.
 
 ## Stack (SPEC §2)

@@ -182,6 +182,9 @@ export interface AppState {
   setTheme: (theme: Theme) => void;
 }
 
+/** User Timing name for each ELK run, to check the SPEC §11 target (≤ 1 s for 300 nodes). */
+export const LAYOUT_MEASURE = 'sysviz:layout';
+
 /** Duration of the search-result pulse (SPEC §6.4). */
 export const PULSE_MS = 2000;
 
@@ -255,8 +258,11 @@ export function createAppStore(deps: AppDeps): AppStore {
       const tree = buildTree(doc);
       const graph = buildElkGraph(tree, expanded, aggregateEdges(doc, expanded, tree));
       set({ layoutPending: true });
+      // local User Timing entry (DevTools / performance.getEntriesByName), never sent anywhere
+      const started = performance.now();
       deps.layout(graph).then(
         (result) => {
+          performance.measure(LAYOUT_MEASURE, { start: started, end: performance.now() });
           if (token !== layoutToken || get().current?.doc.id !== doc.id) return;
           // read positions from the latest doc: a drop may have happened meanwhile
           const latest = get().current?.doc ?? doc;
