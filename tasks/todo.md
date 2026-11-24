@@ -61,10 +61,10 @@ Gate after every task: `npm test && npm run typecheck && npm run lint`.
 
 ## Phase 8 — Navigation
 
-- [ ] T8.1 Search (A15)
-- [ ] T8.2 Filters + combined dimming (A16)
-- [ ] T8.3 Levels, legend, theme, shortcuts, drawers, a11y
-- [ ] **Checkpoint 8**
+- [x] T8.1 Search (A15)
+- [x] T8.2 Filters + combined dimming (A16)
+- [x] T8.3 Levels, legend, theme, shortcuts, drawers, a11y
+- [x] **Checkpoint 8**
 
 ## Phase 9 — Gerar com IA
 

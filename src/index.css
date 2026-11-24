@@ -87,6 +87,7 @@ body,
 .react-flow {
   --xy-background-color: var(--color-bg);
   --xy-minimap-background-color: var(--color-surface);
+  --xy-minimap-mask-background-color: color-mix(in srgb, var(--color-bg) 70%, transparent);
   --xy-controls-button-background-color: var(--color-surface);
   --xy-controls-button-color: var(--color-text);
   --xy-edge-label-background-color: var(--color-surface);
@@ -97,6 +98,20 @@ body,
   box-shadow:
     0 0 0 3px var(--color-highlight),
     0 0 14px 2px var(--color-highlight);
+}
+
+/* Search result: pulsing highlight for 2 s (SPEC §6.4) */
+.sv-pulse {
+  animation: sv-pulse 0.5s ease-in-out 4 alternate;
+}
+
+@keyframes sv-pulse {
+  from {
+    box-shadow: 0 0 0 0 var(--color-accent);
+  }
+  to {
+    box-shadow: 0 0 0 8px var(--color-accent);
+  }
 }
 
 /* "Calculando layout…" only appears if the layout takes longer than 300 ms (SPEC §5.5) */

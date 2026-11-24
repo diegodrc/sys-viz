@@ -13,11 +13,14 @@ import {
 } from '@xyflow/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { aggregateEdges } from '../../graph/aggregate';
+import { filterDimmedEdges, filterDimmedNodes } from '../../graph/filter';
 import { stepLocation } from '../../graph/flowPath';
 import { buildTree } from '../../graph/tree';
+import { visibleNodeIds } from '../../graph/visibility';
 import { t } from '../../i18n/pt-BR';
 import { useApp } from '../../store/context';
 import { NODE_TYPE_STYLES } from '../../theme/nodeTypes';
+import { useResolvedTheme } from '../../theme/useResolvedTheme';
 import { SysEdgeView } from '../edges/SysEdgeView';
 import { FlowBar } from '../FlowBar/FlowBar';
 import { GroupNode } from '../nodes/GroupNode';
@@ -36,6 +39,9 @@ function CanvasInner() {
   const toggleExpanded = useApp((s) => s.toggleExpanded);
   const dropNode = useApp((s) => s.dropNode);
   const activeFlow = useApp((s) => s.activeFlow);
+  const filters = useApp((s) => s.filters);
+  const pulse = useApp((s) => s.pulse);
+  const colorMode = useResolvedTheme(useApp((s) => s.prefs.theme));
   const { fitView } = useReactFlow();
 
   const doc = current?.doc;
@@ -66,16 +72,37 @@ function CanvasInner() {
     [flow, step, rendered, edgesById, tree, expanded],
   );
 
+  // SPEC §6.4 filters: dimmed nodes (groups stay lit if a descendant matches) and edges
+  const filterDimmed = useMemo(() => {
+    if (!tree || !expanded) return { nodes: new Set<string>(), edges: new Set<string>() };
+    const dimmedNodes = filterDimmedNodes(tree, visibleNodeIds(tree, expanded), filters);
+    return { nodes: dimmedNodes, edges: filterDimmedEdges(rendered, dimmedNodes) };
+  }, [tree, expanded, filters, rendered]);
+  const pulseId = pulse?.id;
+
   const derivedNodes = useMemo(
     () =>
-      tree && expanded && boxes ? buildFlowNodes(tree, expanded, boxes, selectedNode, overlay) : [],
-    [tree, expanded, boxes, selectedNode, overlay],
+      tree && expanded && boxes
+        ? buildFlowNodes(tree, expanded, boxes, selectedNode, overlay, {
+            filterDimmed: filterDimmed.nodes,
+            ...(pulseId !== undefined ? { pulseId } : {}),
+          })
+        : [],
+    [tree, expanded, boxes, selectedNode, overlay, filterDimmed, pulseId],
   );
   const edges = useMemo(() => {
     if (!tree) return [];
     const ids = new Set(derivedNodes.map((n) => n.id));
-    return buildFlowEdges(rendered, ids, edgesById, tree, selectedEdge, overlay);
-  }, [rendered, derivedNodes, edgesById, tree, selectedEdge, overlay]);
+    return buildFlowEdges(
+      rendered,
+      ids,
+      edgesById,
+      tree,
+      selectedEdge,
+      overlay,
+      filterDimmed.edges,
+    );
+  }, [rendered, derivedNodes, edgesById, tree, selectedEdge, overlay, filterDimmed]);
 
   // React Flow owns transient drag state; store-derived nodes replace it whenever they change
   // (state derived during render instead of an effect, to avoid a cascading re-render)
@@ -95,6 +122,14 @@ function CanvasInner() {
     fittedRevision.current = revision;
     void fitView({ padding: 0.1 });
   }, [revision, nodesInitialized, fitView]);
+
+  // SPEC §6.4: center the search result once it is laid out and measured
+  const pulseToken = pulse?.token;
+  const pulseRendered = pulseId !== undefined && derivedNodes.some((n) => n.id === pulseId);
+  useEffect(() => {
+    if (pulseId === undefined || !pulseRendered || !nodesInitialized) return;
+    void fitView({ nodes: [{ id: pulseId }], padding: 0.6, maxZoom: 1.2, duration: 300 });
+  }, [pulseId, pulseToken, pulseRendered, nodesInitialized, fitView]);
 
   // SPEC §6.5: the canvas centers on the current step (its edge ends, or the node holding it)
   const focusIds = overlay ? [...overlay.currentNodeIds].sort().join('|') : '';
@@ -134,6 +169,7 @@ function CanvasInner() {
         }}
         onNodeDragStop={(_, node) => dropNode(node.id, node.position)}
         nodesConnectable={false}
+        colorMode={colorMode}
         edgesFocusable
         zoomOnDoubleClick={false}
         minZoom={0.1}

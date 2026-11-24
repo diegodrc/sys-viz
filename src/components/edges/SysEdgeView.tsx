@@ -1,6 +1,6 @@
 import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath, type EdgeProps } from '@xyflow/react';
 import { memo } from 'react';
-import { FLOW_DIM_OPACITY, type SysFlowEdge } from '../Canvas/flowModel';
+import type { SysFlowEdge } from '../Canvas/flowModel';
 
 /**
  * Rendered edge (SPEC §5.3): solid = sync, dashed = async, 50% = assumed, label on the path.
@@ -32,8 +32,10 @@ function SysEdgeViewInner({
   const flowState = data?.flowState ?? 'none';
   const onPath = flowState === 'path' || flowState === 'current';
   const baseOpacity = rendered?.assumed ? 0.5 : 1;
-  // combined dimming keeps the smaller opacity (SPEC §6.4), never the product
-  const opacity = flowState === 'dimmed' ? Math.min(baseOpacity, FLOW_DIM_OPACITY) : baseOpacity;
+  // combined dimming keeps the smaller opacity (SPEC §6.4), never the product; edges on the
+  // flow path ignore the "assumed" 50% so the highlight stays readable
+  const dimOpacity = data?.dimOpacity ?? 1;
+  const opacity = Math.min(dimOpacity, onPath ? 1 : baseOpacity);
   let stroke = 'var(--color-text-muted)';
   let strokeWidth = 1.5;
   if (onPath) {
@@ -54,7 +56,7 @@ function SysEdgeViewInner({
           stroke,
           strokeWidth,
           strokeDasharray: rendered?.async || onPath ? '6 4' : undefined,
-          opacity: onPath ? 1 : opacity,
+          opacity,
         }}
       />
       {(data?.text || data?.badge) && (
@@ -63,7 +65,7 @@ function SysEdgeViewInner({
             className="nodrag nopan pointer-events-auto absolute flex items-center gap-1"
             style={{
               transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
-              opacity: onPath ? 1 : opacity,
+              opacity,
               zIndex: onPath ? 2 : 1,
             }}
             title={data.tooltip}

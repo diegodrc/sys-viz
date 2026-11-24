@@ -2,6 +2,7 @@ import { CopyPlus, FileBraces, Pencil, Trash } from 'lucide-react';
 import { useState } from 'react';
 import { formatDateTime, t } from '../../i18n/pt-BR';
 import { downloadText } from '../../platform/download';
+import { isNarrowScreen } from '../../platform/screen';
 import { systemFileName, toExportJson } from '../../storage/backup';
 import type { IndexEntry } from '../../storage/localStore';
 import { useApp, useAppStoreApi } from '../../store/context';
@@ -18,6 +19,7 @@ export function SystemListItem({ entry, active }: Props) {
   const duplicateSystem = useApp((s) => s.duplicateSystem);
   const deleteSystem = useApp((s) => s.deleteSystem);
   const renameSystem = useApp((s) => s.renameSystem);
+  const setSidebarOpen = useApp((s) => s.setSidebarOpen);
   const [dialog, setDialog] = useState<'rename' | 'delete' | null>(null);
   const [name, setName] = useState(entry.name);
 
@@ -39,7 +41,10 @@ export function SystemListItem({ entry, active }: Props) {
         className="block w-full px-2 pt-2 text-left"
         aria-label={t.systems.open(entry.name)}
         aria-current={active ? 'true' : undefined}
-        onClick={() => openSystem(entry.id)}
+        onClick={() => {
+          openSystem(entry.id);
+          if (isNarrowScreen()) setSidebarOpen(false);
+        }}
       >
         <span className="block truncate text-sm font-medium">{entry.name}</span>
         <span className="block text-xs text-text-muted">

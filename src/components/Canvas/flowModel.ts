@@ -1,6 +1,7 @@
 import { MarkerType, type Edge, type Node } from '@xyflow/react';
 import type { RenderedEdge } from '../../graph/aggregate';
 import { flowHighlight, stepLocation, type FlowHighlight } from '../../graph/flowPath';
+import { FILTER_DIM_OPACITY } from '../../graph/filter';
 import type { Boxes } from '../../graph/layout';
 import type { TreeIndex } from '../../graph/tree';
 import { isExpandedGroup, visibleNodeIds } from '../../graph/visibility';
@@ -24,6 +25,8 @@ export interface SysNodeData extends Record<string, unknown> {
   isGroup: boolean;
   /** End of the current flow step (highlighted). */
   emphasized: boolean;
+  /** Search result: pulses for 2 s (SPEC §6.4). */
+  pulsing: boolean;
 }
 
 export type SysFlowNode = Node<SysNodeData, 'sysNode' | 'sysGroup'>;
@@ -40,6 +43,8 @@ export interface SysEdgeData extends Record<string, unknown> {
   flowState: EdgeFlowState;
   /** Step numbers of the active flow on this edge, e.g. `6,10` (SPEC §6.5). */
   badge: string | undefined;
+  /** Opacity from flow/filter dimming (1 = not dimmed); the smaller one wins (SPEC §6.4). */
+  dimOpacity: number;
 }
 
 export type SysFlowEdge = Edge<SysEdgeData, 'sysEdge'>;
@@ -84,6 +89,7 @@ export function buildFlowNodes(
   boxes: Boxes,
   selectedId: string | undefined,
   overlay?: FlowOverlay,
+  extras: { filterDimmed?: ReadonlySet<string>; pulseId?: string } = {},
 ): SysFlowNode[] {
   const placed = new Set<string>();
   const nodes: SysFlowNode[] = [];
@@ -95,7 +101,10 @@ export function buildFlowNodes(
     if (!node || !box || (parentId !== undefined && !placed.has(parentId))) continue;
     placed.add(id);
     const group = isExpandedGroup(id, tree, expanded);
-    const dimmed = overlay !== undefined && !overlay.highlight.nodesOnPath.has(id);
+    const opacity = Math.min(
+      overlay && !overlay.highlight.nodesOnPath.has(id) ? FLOW_DIM_OPACITY : 1,
+      extras.filterDimmed?.has(id) ? FILTER_DIM_OPACITY : 1,
+    );
     nodes.push({
       id,
       type: group ? 'sysGroup' : 'sysNode',
@@ -103,7 +112,7 @@ export function buildFlowNodes(
       width: box.width,
       height: box.height,
       ...(parentId !== undefined ? { parentId } : {}),
-      ...(dimmed ? { style: { opacity: FLOW_DIM_OPACITY } } : {}),
+      ...(opacity < 1 ? { style: { opacity } } : {}),
       selected: id === selectedId,
       data: {
         name: node.name,
@@ -114,6 +123,7 @@ export function buildFlowNodes(
         descendantCount: tree.descendantsOf(id).length,
         isGroup: tree.isGroup(id),
         emphasized: overlay?.currentNodeIds.has(id) ?? false,
+        pulsing: id === extras.pulseId,
       },
     });
   }
@@ -153,6 +163,7 @@ export function buildFlowEdges(
   tree: TreeIndex,
   selectedId: string | undefined,
   overlay?: FlowOverlay,
+  filterDimmed?: ReadonlySet<string>,
 ): SysFlowEdge[] {
   return rendered
     .filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target))
@@ -175,6 +186,10 @@ export function buildFlowEdges(
           tooltip: edgeTooltip(edge, edgesById, tree),
           flowState,
           badge: overlay?.highlight.badges.get(edge.id),
+          dimOpacity: Math.min(
+            flowState === 'dimmed' ? FLOW_DIM_OPACITY : 1,
+            filterDimmed?.has(edge.id) ? FILTER_DIM_OPACITY : 1,
+          ),
         },
       };
     });

@@ -8,6 +8,7 @@ import {
   settleDrag,
   type Boxes,
 } from '../graph/layout';
+import { EMPTY_FILTERS, type NodeFilters, type PlatformFilterValue } from '../graph/filter';
 import { expandPath } from '../graph/flowPath';
 import { positionsOf, resetPositions, setPositions } from '../graph/positions';
 import { buildTree, type TreeIndex } from '../graph/tree';
@@ -23,7 +24,7 @@ import {
 } from '../import/importSystem';
 import type { Issue } from '../schema/result';
 import { replaceEdge, replaceFlow, replaceNode, replaceSystemInfo } from '../schema/edit';
-import type { Flow, SysEdge, SysNode, SystemDoc } from '../schema/system';
+import type { Flow, NodeType, SysEdge, SysNode, SystemDoc } from '../schema/system';
 import { validateSystemDoc } from '../schema/validate';
 import type { InvalidBackupEntry } from '../storage/backup';
 import {
@@ -43,6 +44,7 @@ import {
   type CorruptEntry,
   type IndexEntry,
   type Prefs,
+  type Theme,
   type StorageFailure,
   type StorageLike,
 } from '../storage/localStore';
@@ -112,6 +114,10 @@ export interface AppState {
   selection: Selection | undefined;
   /** Selected flow (SPEC §6.5); `step` is the 0-based index in step-by-step mode, if started. */
   activeFlow: ActiveFlow | undefined;
+  /** Type/hosting filters (SPEC §6.4); kept for the session, not persisted. */
+  filters: NodeFilters;
+  /** Node to center and pulse after a search (SPEC §6.4); a new token re-triggers the effect. */
+  pulse: { id: string; token: number } | undefined;
 
   init: () => void;
   loadExample: () => void;
@@ -162,7 +168,18 @@ export interface AppState {
   previousStep: () => void;
   /** "Expandir" in the hidden-step hint: makes both ends of the current step visible. */
   revealCurrentStep: () => void;
+
+  // Navigation (SPEC §6.4)
+  toggleTypeFilter: (type: NodeType) => void;
+  togglePlatformFilter: (platform: PlatformFilterValue) => void;
+  clearFilters: () => void;
+  /** Search result chosen: expand ancestors, select, center and pulse for 2 s. */
+  focusSearchResult: (id: string) => void;
+  setTheme: (theme: Theme) => void;
 }
+
+/** Duration of the search-result pulse (SPEC §6.4). */
+export const PULSE_MS = 2000;
 
 export type AppStore = StoreApi<AppState>;
 
@@ -386,6 +403,8 @@ export function createAppStore(deps: AppDeps): AppStore {
       layoutPending: false,
       selection: undefined,
       activeFlow: undefined,
+      filters: EMPTY_FILTERS,
+      pulse: undefined,
 
       init() {
         const firstRun = !hasAnyAppKey(storage);
@@ -672,6 +691,38 @@ export function createAppStore(deps: AppDeps): AppStore {
           ...tree.ancestorsOf(edge.source),
           ...tree.ancestorsOf(edge.target),
         ]);
+      },
+
+      toggleTypeFilter(type) {
+        const types = new Set(get().filters.types);
+        if (types.has(type)) types.delete(type);
+        else types.add(type);
+        set({ filters: { ...get().filters, types } });
+      },
+
+      togglePlatformFilter(platform) {
+        const platforms = new Set(get().filters.platforms);
+        if (platforms.has(platform)) platforms.delete(platform);
+        else platforms.add(platform);
+        set({ filters: { ...get().filters, platforms } });
+      },
+
+      clearFilters() {
+        set({ filters: EMPTY_FILTERS });
+      },
+
+      focusSearchResult(id) {
+        get().focusNode(id);
+        const token = (get().pulse?.token ?? 0) + 1;
+        set({ pulse: { id, token } });
+        // SPEC §6.4: the pulse lasts 2 s; clearing it lets the same node pulse again later
+        setTimeout(() => {
+          if (get().pulse?.token === token) set({ pulse: undefined });
+        }, PULSE_MS);
+      },
+
+      setTheme(theme) {
+        setPrefs({ theme });
       },
 
       updateSystemInfo(info) {

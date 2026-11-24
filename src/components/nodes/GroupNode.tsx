@@ -14,7 +14,7 @@ function GroupNodeView({ id, data, selected }: NodeProps<SysFlowNode>) {
 
   return (
     <div
-      className={`sv-group h-full w-full rounded-xl border-2 ${data.assumed ? 'border-dashed' : ''} ${selected ? 'ring-2 ring-accent' : ''} ${data.emphasized ? 'sv-emphasized' : ''}`}
+      className={`sv-group h-full w-full rounded-xl border-2 ${data.assumed ? 'border-dashed' : ''} ${selected ? 'ring-2 ring-accent' : ''} ${data.emphasized ? 'sv-emphasized' : ''} ${data.pulsing ? 'sv-pulse' : ''}`}
       style={{ borderColor: style.color, backgroundColor: `${style.color}0d` }}
       title={data.assumed ? t.canvas.assumedNode : undefined}
     >

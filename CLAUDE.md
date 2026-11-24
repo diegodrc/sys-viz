@@ -8,10 +8,10 @@ relevantes à tarefa (mapa abaixo), não o arquivo inteiro.
 
 ## Estado atual
 
-Etapas 1–7 concluídas (scaffold; schema/validate; `graph/`; storage + store + sidebar +
-importar/exportar/backup; canvas React Flow + ELK; painel de detalhes + edição; fluxos). Próxima
-etapa = **etapa 8 da seção 14** (busca, filtros, legenda, níveis, tema, atalhos). Plano e
-checklist: [tasks/plan.md](tasks/plan.md), [tasks/todo.md](tasks/todo.md). Atualize esta linha ao
+Etapas 1–8 concluídas (scaffold; schema/validate; `graph/`; storage + store + sidebar +
+importar/exportar/backup; canvas React Flow + ELK; painel de detalhes + edição; fluxos; busca,
+filtros, níveis, legenda, tema, atalhos). Próxima etapa = **etapa 9 da seção 14** (tela "Gerar com
+IA" + prompts, texto literal da §9). Plano e checklist: [tasks/plan.md](tasks/plan.md), [tasks/todo.md](tasks/todo.md). Atualize esta linha ao
 concluir cada etapa.
 
 ## Stack (SPEC §2)
@@ -89,4 +89,6 @@ entrada). Componentes só renderizam e despacham ações. Todo localStorage via 
   pelo DOM (`.react-flow__node`, `.react-flow__edge`) e pelo localStorage.
 - Aba `document.hidden` no painel também **não recebe cliques reais**; dirija a UI por eventos DOM
   (`dispatchEvent`, setter nativo de `value` + evento `input`).
+- Patches multi-linha via `node -e "..."` quebram com crases (o bash executa `...`): escreva o
+  script num arquivo em `$TEMP` com heredoc `<<'EOF'` ou use a ferramenta Edit.
 - Não usar `python3` no Bash (é o stub da Microsoft Store e trava); use `node`.
