@@ -1,0 +1,23 @@
+// Copies the literal AI prompts from SPEC.md §9.2 and §9.3 into src/prompts/*.txt.
+// The text must not be edited by hand (SPEC §17); re-run this script if the spec changes.
+import { readFileSync, writeFileSync } from 'node:fs';
+
+export function extractPrompt(spec, heading) {
+  const start = spec.indexOf(heading);
+  if (start === -1) throw new Error(`heading not found: ${heading}`);
+  const open = spec.indexOf('````text\n', start);
+  const close = spec.indexOf('\n````', open + 1);
+  if (open === -1 || close === -1) throw new Error(`prompt block not found after ${heading}`);
+  return spec.slice(open + '````text\n'.length, close);
+}
+
+const spec = readFileSync(new URL('../SPEC.md', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+writeFileSync(
+  new URL('../src/prompts/create.txt', import.meta.url),
+  extractPrompt(spec, '### 9.2 Prompt de criação'),
+);
+writeFileSync(
+  new URL('../src/prompts/evolve.txt', import.meta.url),
+  extractPrompt(spec, '### 9.3 Prompt de evolução'),
+);
+console.log('prompts extracted');

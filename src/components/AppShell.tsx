@@ -2,6 +2,8 @@ import { useEffect } from 'react';
 import { isTypingTarget } from '../platform/keyboard';
 import { useApp, useAppStoreApi } from '../store/context';
 import { useResolvedTheme } from '../theme/useResolvedTheme';
+import { AboutDialog } from './AboutDialog/AboutDialog';
+import { AiPromptDialog } from './AiPromptDialog/AiPromptDialog';
 import { Canvas } from './Canvas/Canvas';
 import { NoticeBar } from './common/NoticeBar';
 import { DetailsPanel } from './DetailsPanel/DetailsPanel';
@@ -53,6 +55,8 @@ export function AppShell() {
         <DetailsPanel />
       </div>
       <ImportDialog />
+      <AiPromptDialog />
+      <AboutDialog />
     </div>
   );
 }

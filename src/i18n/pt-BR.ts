@@ -259,6 +259,35 @@ export const t = {
     dark: 'escuro',
     system: 'sistema',
   },
+  ai: {
+    button: 'Gerar com IA',
+    title: 'Gerar com IA',
+    tabCreate: 'Criar novo sistema',
+    tabEvolve: 'Evoluir sistema atual',
+    evolveDisabled: 'Abra um sistema para gerar o prompt de evolução.',
+    promptLabel: 'Prompt para o agente de IA',
+    copy: 'Copiar prompt',
+    copied: 'Prompt copiado!',
+    copyFailed: 'Não foi possível copiar. Selecione o texto e copie manualmente.',
+    instructions:
+      '1. Copie o prompt. 2. Cole em um agente de IA (ChatGPT, Claude, Copilot…). 3. Responda às perguntas. 4. Cole o JSON final em Importar.',
+    importJson: 'Importar JSON',
+  },
+  about: {
+    button: 'Sobre/Ajuda',
+    title: 'Sobre o sys-viz',
+    intro:
+      'O sys-viz visualiza arquiteturas de sistemas descritas em JSON, com nós aninhados, agregação de arestas e fluxos passo a passo. Tudo roda no navegador, sem servidor e sem acesso à rede; os dados ficam no armazenamento local deste navegador.',
+    fileNote:
+      'No HTML único aberto via file://, o localStorage é separado da versão hospedada; para mover dados use exportar/importar backup.',
+    shortcutsTitle: 'Atalhos',
+    shortcuts: [
+      '/ — buscar nó',
+      '← / → — passo anterior / próximo do fluxo',
+      'Esc — tirar o foco do campo, limpar a seleção, fechar painéis e diálogos',
+      'Duplo clique em um grupo — expandir/colapsar',
+    ],
+  },
   layout: {
     reset: 'Resetar layout',
     resetTitle: 'Resetar layout',

@@ -68,9 +68,9 @@ Gate after every task: `npm test && npm run typecheck && npm run lint`.
 
 ## Phase 9 — Gerar com IA
 
-- [ ] T9.1 createPrompt / evolvePrompt (literal text)
-- [ ] T9.2 AiPromptDialog + Sobre/Ajuda (A17)
-- [ ] **Checkpoint 9**
+- [x] T9.1 createPrompt / evolvePrompt (literal text)
+- [x] T9.2 AiPromptDialog + Sobre/Ajuda (A17)
+- [x] **Checkpoint 9**
 
 ## Phase 10 — Builds & acceptance
 

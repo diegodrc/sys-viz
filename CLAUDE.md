@@ -8,10 +8,10 @@ relevantes à tarefa (mapa abaixo), não o arquivo inteiro.
 
 ## Estado atual
 
-Etapas 1–8 concluídas (scaffold; schema/validate; `graph/`; storage + store + sidebar +
-importar/exportar/backup; canvas React Flow + ELK; painel de detalhes + edição; fluxos; busca,
-filtros, níveis, legenda, tema, atalhos). Próxima etapa = **etapa 9 da seção 14** (tela "Gerar com
-IA" + prompts, texto literal da §9). Plano e checklist: [tasks/plan.md](tasks/plan.md), [tasks/todo.md](tasks/todo.md). Atualize esta linha ao
+Etapas 1–9 concluídas (scaffold; schema/validate; `graph/`; storage + store + sidebar +
+importar/exportar/backup; canvas React Flow + ELK; painel de detalhes + edição; fluxos; navegação;
+"Gerar com IA" + Sobre/Ajuda). Próxima etapa = **etapa 10 da seção 14** (PWA + HTML único +
+verificação dos critérios A1–A21). Plano e checklist: [tasks/plan.md](tasks/plan.md), [tasks/todo.md](tasks/todo.md). Atualize esta linha ao
 concluir cada etapa.
 
 ## Stack (SPEC §2)

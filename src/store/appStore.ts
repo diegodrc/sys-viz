@@ -108,6 +108,8 @@ export interface AppState {
   notice: Notice | undefined;
   /** Import dialog state; undefined when the dialog is closed. */
   importer: ImportStep | undefined;
+  /** Secondary dialogs: "Gerar com IA" (SPEC §9.1) and "Sobre/Ajuda" (SPEC §2.1). */
+  dialog: AppDialog | undefined;
   layout: CanvasLayout | undefined;
   /** True while an ELK request for the current state is running. */
   layoutPending: boolean;
@@ -135,6 +137,8 @@ export interface AppState {
   dismissNotice: () => void;
 
   openImport: () => void;
+  openDialog: (dialog: AppDialog) => void;
+  closeDialog: () => void;
   closeImport: () => void;
   importText: (text: string) => void;
   resolveConflict: (choice: 'replace' | 'copy') => void;
@@ -180,6 +184,8 @@ export interface AppState {
 
 /** Duration of the search-result pulse (SPEC §6.4). */
 export const PULSE_MS = 2000;
+
+export type AppDialog = 'ai' | 'about';
 
 export type AppStore = StoreApi<AppState>;
 
@@ -399,6 +405,7 @@ export function createAppStore(deps: AppDeps): AppStore {
       prefs: DEFAULT_PREFS,
       notice: deps.persistent ? undefined : { kind: 'error', message: t.storage.unavailable },
       importer: undefined,
+      dialog: undefined,
       layout: undefined,
       layoutPending: false,
       selection: undefined,
@@ -520,7 +527,15 @@ export function createAppStore(deps: AppDeps): AppStore {
       },
 
       openImport() {
-        set({ importer: { step: 'input' } });
+        set({ importer: { step: 'input' }, dialog: undefined });
+      },
+
+      openDialog(dialog) {
+        set({ dialog });
+      },
+
+      closeDialog() {
+        set({ dialog: undefined });
       },
 
       closeImport() {

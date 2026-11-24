@@ -41,6 +41,8 @@ export default defineConfig(({ mode }) => {
             workbox: {
               globPatterns: ['**/*.{js,css,html,png,svg,json}'],
               navigateFallback: 'index.html',
+              // the app bundle (~2.1 MB, ELK worker inlined) must be precached to work offline
+              maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
             },
           }),
     ],
