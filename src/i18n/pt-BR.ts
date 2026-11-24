@@ -206,6 +206,22 @@ export const t = {
       label ? `${source} → ${target} (${label})` : `${source} → ${target}`,
     stepItem: (n: number, edge: string) => `${n}. ${edge}`,
   },
+  flows: {
+    selector: 'Fluxo',
+    none: 'Nenhum',
+    expandPath: 'Expandir caminho',
+    details: 'Detalhes do fluxo',
+    bar: 'Passo a passo do fluxo',
+    previous: 'Anterior',
+    next: 'Próximo',
+    close: 'Fechar fluxo',
+    notStarted: (name: string, total: number) =>
+      `${name}: ${total === 1 ? '1 passo' : `${total} passos`}. Use Próximo ou → para começar.`,
+    stepOf: (n: number, total: number, text: string) =>
+      text ? `Passo ${n} de ${total}: ${text}` : `Passo ${n} de ${total}`,
+    hiddenStep: (name: string) => `Este passo está dentro de ${name}.`,
+    reveal: 'Expandir',
+  },
   layout: {
     reset: 'Resetar layout',
     resetTitle: 'Resetar layout',

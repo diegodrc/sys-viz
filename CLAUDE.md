@@ -8,9 +8,9 @@ relevantes à tarefa (mapa abaixo), não o arquivo inteiro.
 
 ## Estado atual
 
-Etapas 1–6 concluídas (scaffold; schema/validate; `graph/`; storage + store + sidebar +
-importar/exportar/backup; canvas React Flow + ELK; painel de detalhes + edição). Próxima etapa =
-**etapa 7 da seção 14** (fluxos: destaque, badges, expandir caminho, passo a passo). Plano e
+Etapas 1–7 concluídas (scaffold; schema/validate; `graph/`; storage + store + sidebar +
+importar/exportar/backup; canvas React Flow + ELK; painel de detalhes + edição; fluxos). Próxima
+etapa = **etapa 8 da seção 14** (busca, filtros, legenda, níveis, tema, atalhos). Plano e
 checklist: [tasks/plan.md](tasks/plan.md), [tasks/todo.md](tasks/todo.md). Atualize esta linha ao
 concluir cada etapa.
 

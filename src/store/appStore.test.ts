@@ -357,3 +357,64 @@ describe('edits (SPEC §6.6)', () => {
     expect(s().notice?.kind).toBe('error');
   });
 });
+
+describe('flows (SPEC §6.5)', () => {
+  it('A6/A7: selecting a flow keeps expansion; "Expandir caminho" expands exactly the path', async () => {
+    const { s } = setup();
+    s().init();
+    s().selectFlow('fluxo-processamento');
+    expect(s().activeFlow).toEqual({ id: 'fluxo-processamento', step: undefined });
+    expect(s().current?.expanded.size).toBe(0);
+    s().expandFlowPath();
+    expect([...(s().current?.expanded ?? [])].sort()).toEqual([
+      'db-pedidos',
+      'rabbitmq',
+      'sistema-pedidos',
+      'sistema-validacao',
+    ]);
+    await vi.waitFor(() => expect(Object.keys(s().layout?.boxes ?? {})).toHaveLength(25), {
+      timeout: ELK_TIMEOUT,
+    });
+  });
+
+  it('A8: → steps forward; the panel selection follows the original edge of the step', () => {
+    const { s } = setup();
+    s().init();
+    s().selectFlow('fluxo-processamento');
+    for (let i = 0; i < 6; i++) s().nextStep();
+    expect(s().activeFlow?.step).toBe(5);
+    expect(s().selection).toEqual({ kind: 'docEdge', id: 'e13' });
+    s().previousStep();
+    expect(s().selection).toEqual({ kind: 'docEdge', id: 'e12' });
+  });
+
+  it('steps are clamped to the flow; unknown flows are ignored', () => {
+    const { s } = setup();
+    s().init();
+    s().selectFlow('nao-existe');
+    expect(s().activeFlow).toBeUndefined();
+    s().selectFlow('fluxo-recebimento');
+    s().previousStep();
+    expect(s().activeFlow?.step).toBeUndefined();
+    for (let i = 0; i < 20; i++) s().nextStep();
+    expect(s().activeFlow?.step).toBe(6);
+  });
+
+  it('"Expandir" on a hidden step reveals both ends of its edge', () => {
+    const { s } = setup();
+    s().init();
+    s().selectFlow('fluxo-processamento');
+    s().nextStep(); // e08: fila-pedidos -> worker-pedidos, inside sistema-pedidos
+    s().revealCurrentStep();
+    expect([...(s().current?.expanded ?? [])].sort()).toEqual(['db-pedidos', 'sistema-pedidos']);
+  });
+
+  it('opening another system clears the active flow', () => {
+    const { s } = setup();
+    s().init();
+    s().selectFlow('fluxo-processamento');
+    s().duplicateSystem('exemplo-pedidos');
+    s().openSystem('exemplo-pedidos-copia');
+    expect(s().activeFlow).toBeUndefined();
+  });
+});

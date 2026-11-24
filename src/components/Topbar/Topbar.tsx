@@ -1,6 +1,7 @@
 import { Menu } from 'lucide-react';
 import { t } from '../../i18n/pt-BR';
 import { useApp } from '../../store/context';
+import { FlowSelector } from './FlowSelector';
 import { ResetLayoutButton } from './ResetLayoutButton';
 import { SystemMenu } from './SystemMenu';
 
@@ -20,7 +21,8 @@ export function Topbar() {
         <Menu size={18} aria-hidden />
       </button>
       <SystemMenu />
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex min-w-0 items-center gap-2">
+        <FlowSelector />
         <ResetLayoutButton />
       </div>
     </header>

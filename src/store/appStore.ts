@@ -8,6 +8,7 @@ import {
   settleDrag,
   type Boxes,
 } from '../graph/layout';
+import { expandPath } from '../graph/flowPath';
 import { positionsOf, resetPositions, setPositions } from '../graph/positions';
 import { buildTree, type TreeIndex } from '../graph/tree';
 import { isVisible, pruneExpanded, visibleAncestor } from '../graph/visibility';
@@ -109,6 +110,8 @@ export interface AppState {
   /** True while an ELK request for the current state is running. */
   layoutPending: boolean;
   selection: Selection | undefined;
+  /** Selected flow (SPEC §6.5); `step` is the 0-based index in step-by-step mode, if started. */
+  activeFlow: ActiveFlow | undefined;
 
   init: () => void;
   loadExample: () => void;
@@ -149,9 +152,24 @@ export interface AppState {
   updateEdge: (edge: SysEdge) => boolean;
   updateFlow: (flow: Flow) => boolean;
   updateSystemInfo: (info: { name: string; description: string | undefined }) => boolean;
+
+  // Flows (SPEC §6.5)
+  selectFlow: (id: string | undefined) => void;
+  /** Minimal expansion so every flow edge has both ends visible; keeps the current state. */
+  expandFlowPath: () => void;
+  goToStep: (index: number) => void;
+  nextStep: () => void;
+  previousStep: () => void;
+  /** "Expandir" in the hidden-step hint: makes both ends of the current step visible. */
+  revealCurrentStep: () => void;
 }
 
 export type AppStore = StoreApi<AppState>;
+
+export interface ActiveFlow {
+  id: string;
+  step: number | undefined;
+}
 
 function sortByOpened(entries: readonly IndexEntry[]): IndexEntry[] {
   return [...entries].sort(
@@ -248,6 +266,15 @@ export function createAppStore(deps: AppDeps): AppStore {
       return true;
     };
 
+    const edgeMap = (doc: SystemDoc): Map<string, SysEdge> =>
+      new Map(doc.edges.map((e) => [e.id, e]));
+    const flowById = (id: string): Flow | undefined =>
+      get().current?.doc.flows?.find((f) => f.id === id);
+    const currentFlow = (): Flow | undefined => {
+      const id = get().activeFlow?.id;
+      return id === undefined ? undefined : flowById(id);
+    };
+
     const fixSelection = (tree: TreeIndex, expanded: ReadonlySet<string>): void => {
       const selection = get().selection;
       if (selection?.kind === 'node' && !isVisible(selection.id, tree, expanded)) {
@@ -270,7 +297,7 @@ export function createAppStore(deps: AppDeps): AppStore {
 
     const showDoc = (doc: SystemDoc, expandedIds: Iterable<string>): void => {
       const expanded = pruneExpanded(buildTree(doc), expandedIds);
-      set({ current: { doc, expanded }, selection: undefined });
+      set({ current: { doc, expanded }, selection: undefined, activeFlow: undefined });
       setPrefs({ lastOpenedId: doc.id });
       requestLayout();
     };
@@ -358,6 +385,7 @@ export function createAppStore(deps: AppDeps): AppStore {
       layout: undefined,
       layoutPending: false,
       selection: undefined,
+      activeFlow: undefined,
 
       init() {
         const firstRun = !hasAnyAppKey(storage);
@@ -590,6 +618,60 @@ export function createAppStore(deps: AppDeps): AppStore {
 
       updateFlow(flow) {
         return applyEdit((doc) => replaceFlow(doc, flow));
+      },
+
+      selectFlow(id) {
+        const flow = id === undefined ? undefined : flowById(id);
+        set({ activeFlow: flow ? { id: flow.id, step: undefined } : undefined });
+      },
+
+      expandFlowPath() {
+        const current = get().current;
+        const flow = currentFlow();
+        if (!current || !flow) return;
+        const tree = buildTree(current.doc);
+        const next = expandPath(flow, edgeMap(current.doc), tree, current.expanded);
+        if (next.size !== current.expanded.size) applyExpansion(next);
+      },
+
+      goToStep(index) {
+        const active = get().activeFlow;
+        const flow = currentFlow();
+        const step = flow?.steps[index];
+        if (!active || !flow || !step) return;
+        set({
+          activeFlow: { ...active, step: index },
+          selection: { kind: 'docEdge', id: step.edgeId },
+        });
+      },
+
+      nextStep() {
+        const active = get().activeFlow;
+        const flow = currentFlow();
+        if (!active || !flow) return;
+        const next =
+          active.step === undefined ? 0 : Math.min(active.step + 1, flow.steps.length - 1);
+        get().goToStep(next);
+      },
+
+      previousStep() {
+        const active = get().activeFlow;
+        if (!active || active.step === undefined) return;
+        get().goToStep(Math.max(active.step - 1, 0));
+      },
+
+      revealCurrentStep() {
+        const current = get().current;
+        const active = get().activeFlow;
+        const step = active?.step === undefined ? undefined : currentFlow()?.steps[active.step];
+        const edge = step && current ? edgeMap(current.doc).get(step.edgeId) : undefined;
+        if (!current || !edge) return;
+        const tree = buildTree(current.doc);
+        applyExpansion([
+          ...current.expanded,
+          ...tree.ancestorsOf(edge.source),
+          ...tree.ancestorsOf(edge.target),
+        ]);
       },
 
       updateSystemInfo(info) {

@@ -19,9 +19,10 @@ import { t } from '../../i18n/pt-BR';
 import { useApp } from '../../store/context';
 import { NODE_TYPE_STYLES } from '../../theme/nodeTypes';
 import { SysEdgeView } from '../edges/SysEdgeView';
+import { FlowBar } from '../FlowBar/FlowBar';
 import { GroupNode } from '../nodes/GroupNode';
 import { SysNodeCard } from '../nodes/SysNodeCard';
-import { buildFlowEdges, buildFlowNodes, type SysFlowNode } from './flowModel';
+import { buildFlowEdges, buildFlowNodes, buildFlowOverlay, type SysFlowNode } from './flowModel';
 
 const nodeTypes: NodeTypes = { sysNode: SysNodeCard, sysGroup: GroupNode };
 const edgeTypes: EdgeTypes = { sysEdge: SysEdgeView };
@@ -34,6 +35,7 @@ function CanvasInner() {
   const select = useApp((s) => s.select);
   const toggleExpanded = useApp((s) => s.toggleExpanded);
   const dropNode = useApp((s) => s.dropNode);
+  const activeFlow = useApp((s) => s.activeFlow);
   const { fitView } = useReactFlow();
 
   const doc = current?.doc;
@@ -54,15 +56,26 @@ function CanvasInner() {
     return location.kind === 'rendered' ? location.renderedEdgeId : undefined;
   }, [selection, tree, expanded, edgesById]);
 
+  const flow = activeFlow && doc?.flows?.find((f) => f.id === activeFlow.id);
+  const step = activeFlow?.step;
+  const overlay = useMemo(
+    () =>
+      flow && tree && expanded
+        ? buildFlowOverlay(flow, step, rendered, edgesById, tree, expanded)
+        : undefined,
+    [flow, step, rendered, edgesById, tree, expanded],
+  );
+
   const derivedNodes = useMemo(
-    () => (tree && expanded && boxes ? buildFlowNodes(tree, expanded, boxes, selectedNode) : []),
-    [tree, expanded, boxes, selectedNode],
+    () =>
+      tree && expanded && boxes ? buildFlowNodes(tree, expanded, boxes, selectedNode, overlay) : [],
+    [tree, expanded, boxes, selectedNode, overlay],
   );
   const edges = useMemo(() => {
     if (!tree) return [];
     const ids = new Set(derivedNodes.map((n) => n.id));
-    return buildFlowEdges(rendered, ids, edgesById, tree, selectedEdge);
-  }, [rendered, derivedNodes, edgesById, tree, selectedEdge]);
+    return buildFlowEdges(rendered, ids, edgesById, tree, selectedEdge, overlay);
+  }, [rendered, derivedNodes, edgesById, tree, selectedEdge, overlay]);
 
   // React Flow owns transient drag state; store-derived nodes replace it whenever they change
   // (state derived during render instead of an effect, to avoid a cascading re-render)
@@ -82,6 +95,18 @@ function CanvasInner() {
     fittedRevision.current = revision;
     void fitView({ padding: 0.1 });
   }, [revision, nodesInitialized, fitView]);
+
+  // SPEC §6.5: the canvas centers on the current step (its edge ends, or the node holding it)
+  const focusIds = overlay ? [...overlay.currentNodeIds].sort().join('|') : '';
+  useEffect(() => {
+    if (step === undefined || focusIds === '' || !nodesInitialized) return;
+    void fitView({
+      nodes: focusIds.split('|').map((id) => ({ id })),
+      padding: 0.4,
+      maxZoom: 1.2,
+      duration: 300,
+    });
+  }, [step, focusIds, nodesInitialized, fitView]);
 
   if (!doc) {
     return (
@@ -123,6 +148,7 @@ function CanvasInner() {
         />
         <Controls showInteractive={false} />
       </ReactFlow>
+      <FlowBar />
       {layoutPending && (
         <div
           role="status"

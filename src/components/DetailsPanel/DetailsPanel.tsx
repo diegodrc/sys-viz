@@ -15,6 +15,7 @@ export function DetailsPanel() {
   const current = useApp((s) => s.current);
   const selection = useApp((s) => s.selection);
   const select = useApp((s) => s.select);
+  const activeFlow = useApp((s) => s.activeFlow);
   const doc = current?.doc;
   const expanded = current?.expanded;
   const tree = useMemo(() => (doc ? buildTree(doc) : undefined), [doc]);
@@ -37,7 +38,11 @@ export function DetailsPanel() {
   } else if (selection.kind === 'docEdge') {
     const edge = edgesById.get(selection.id);
     title = t.details.kinds.edge;
-    body = edge ? <EdgeDetails key={edge.id} edge={edge} tree={tree} /> : null;
+    // SPEC §6.5: during step-by-step the panel shows the step's original edge with its note
+    const flow = activeFlow && doc.flows?.find((f) => f.id === activeFlow.id);
+    const step = activeFlow?.step === undefined ? undefined : flow?.steps[activeFlow.step];
+    const note = step?.edgeId === selection.id ? step.note : undefined;
+    body = edge ? <EdgeDetails key={edge.id} edge={edge} tree={tree} note={note} /> : null;
   } else if (selection.kind === 'flow') {
     const flow = doc.flows?.find((f) => f.id === selection.id);
     title = t.details.kinds.flow;

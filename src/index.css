@@ -92,6 +92,13 @@ body,
   --xy-edge-label-background-color: var(--color-surface);
 }
 
+/* Ends of the current flow step (SPEC §6.5 "nós de ponta são realçados") */
+.sv-emphasized {
+  box-shadow:
+    0 0 0 3px var(--color-highlight),
+    0 0 14px 2px var(--color-highlight);
+}
+
 /* "Calculando layout…" only appears if the layout takes longer than 300 ms (SPEC §5.5) */
 .sv-delayed-show {
   opacity: 0;

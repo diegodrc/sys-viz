@@ -55,9 +55,9 @@ Gate after every task: `npm test && npm run typecheck && npm run lint`.
 
 ## Phase 7 — Flows
 
-- [ ] T7.1 Flow selector, highlight, badges, Expandir caminho (A6, A7)
-- [ ] T7.2 Step bar + ←/→ (A8)
-- [ ] **Checkpoint 7**
+- [x] T7.1 Flow selector, highlight, badges, Expandir caminho (A6, A7)
+- [x] T7.2 Step bar + ←/→ (A8)
+- [x] **Checkpoint 7**
 
 ## Phase 8 — Navigation
 

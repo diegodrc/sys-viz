@@ -4,7 +4,13 @@ import { buildTree } from '../../graph/tree';
 import { expandAll, visibleNodeIds } from '../../graph/visibility';
 import type { Boxes } from '../../graph/layout';
 import { exampleDoc } from '../../test/fixtures';
-import { buildFlowEdges, buildFlowNodes, edgeText } from './flowModel';
+import {
+  buildFlowEdges,
+  buildFlowNodes,
+  buildFlowOverlay,
+  edgeText,
+  FLOW_DIM_OPACITY,
+} from './flowModel';
 
 const doc = exampleDoc();
 const tree = buildTree(doc);
@@ -81,5 +87,52 @@ describe('buildFlowEdges / edgeText', () => {
     const plain = byId.get('usuario->akamai');
     expect(assumed && edgeText(assumed)).toBe('HTTPS (?)');
     expect(plain && edgeText(plain)).toBe('acessa o portal');
+  });
+});
+
+describe('flow overlay (SPEC §6.5)', () => {
+  const flow = doc.flows!.find((f) => f.id === 'fluxo-processamento')!;
+  const macro = new Set<string>();
+  const rendered = aggregateEdges(doc, macro, tree);
+  const ids = new Set(visibleNodeIds(tree, macro));
+
+  it('A6: 5 highlighted edges with badges; others and off-path nodes dimmed to 30%', () => {
+    const overlay = buildFlowOverlay(flow, undefined, rendered, edgesById, tree, macro);
+    const edges = buildFlowEdges(rendered, ids, edgesById, tree, undefined, overlay);
+    const onPath = edges.filter((e) => e.data?.flowState === 'path');
+    expect(Object.fromEntries(onPath.map((e) => [e.id, e.data?.badge]))).toEqual({
+      'sistema-pedidos->ca-gateway': '2',
+      'ca-gateway->sistema-validacao': '3',
+      'sistema-validacao->rabbitmq': '6,10',
+      'rabbitmq->sistema-validacao': '8,12',
+      'sistema-validacao->sistema-externo': '14',
+    });
+    expect(onPath.every((e) => e.animated)).toBe(true);
+    expect(edges.filter((e) => e.data?.flowState === 'dimmed')).toHaveLength(4);
+
+    const nodes = buildFlowNodes(tree, macro, boxesFor(macro), undefined, overlay);
+    const dimmed = nodes.filter((n) => n.style?.opacity === FLOW_DIM_OPACITY).map((n) => n.id);
+    expect(dimmed.sort()).toEqual(['akamai', 'apigee', 'portal-web', 'usuario']);
+  });
+
+  it('A8: step 6 (e13) emphasizes its aggregated rendered edge and both ends', () => {
+    const overlay = buildFlowOverlay(flow, 5, rendered, edgesById, tree, macro);
+    expect(overlay.currentEdgeId).toBe('sistema-validacao->rabbitmq');
+    expect([...overlay.currentNodeIds].sort()).toEqual(['rabbitmq', 'sistema-validacao']);
+    const edges = buildFlowEdges(rendered, ids, edgesById, tree, undefined, overlay);
+    expect(edges.find((e) => e.id === 'sistema-validacao->rabbitmq')?.data?.flowState).toBe(
+      'current',
+    );
+  });
+
+  it('a hidden step emphasizes the collapsed node that holds it', () => {
+    const overlay = buildFlowOverlay(flow, 0, rendered, edgesById, tree, macro);
+    expect(overlay.currentEdgeId).toBeUndefined();
+    expect([...overlay.currentNodeIds]).toEqual(['sistema-pedidos']);
+  });
+
+  it('without a flow nothing is dimmed or badged', () => {
+    const edges = buildFlowEdges(rendered, ids, edgesById, tree, undefined);
+    expect(edges.every((e) => e.data?.flowState === 'none' && !e.data.badge)).toBe(true);
   });
 });

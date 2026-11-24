@@ -12,7 +12,7 @@ function SysNodeCardView({ data, selected }: NodeProps<SysFlowNode>) {
 
   return (
     <div
-      className={`sv-node flex h-full w-full items-center gap-2 rounded-lg border-2 bg-surface px-2.5 text-text shadow-sm ${data.assumed ? 'border-dashed' : ''} ${selected ? 'ring-2 ring-accent ring-offset-1 ring-offset-bg' : ''}`}
+      className={`sv-node flex h-full w-full items-center gap-2 rounded-lg border-2 bg-surface px-2.5 text-text shadow-sm ${data.assumed ? 'border-dashed' : ''} ${selected ? 'ring-2 ring-accent ring-offset-1 ring-offset-bg' : ''} ${data.emphasized ? 'sv-emphasized' : ''}`}
       style={{ borderColor: style.color }}
       title={data.assumed ? t.canvas.assumedNode : undefined}
     >
