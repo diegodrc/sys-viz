@@ -1,0 +1,7 @@
+dist
+dist-single
+dev-dist
+coverage
+node_modules
+package-lock.json
+SPEC.md

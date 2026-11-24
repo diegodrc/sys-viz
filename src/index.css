@@ -1,0 +1,63 @@
+@import 'tailwindcss';
+
+/* Theme is driven by data-theme on <html> ("light" | "dark"); "system" is resolved in JS. */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+:root {
+  color-scheme: light;
+  --sv-bg: #f8fafc;
+  --sv-surface: #ffffff;
+  --sv-surface-muted: #f1f5f9;
+  --sv-border: #cbd5e1;
+  --sv-text: #0f172a;
+  --sv-text-muted: #475569;
+  --sv-accent: #2563eb;
+  --sv-accent-contrast: #ffffff;
+  --sv-highlight: #d97706;
+  --sv-danger: #b91c1c;
+  --sv-warning: #a16207;
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+  --sv-bg: #0b1120;
+  --sv-surface: #111827;
+  --sv-surface-muted: #1f2937;
+  --sv-border: #374151;
+  --sv-text: #f1f5f9;
+  --sv-text-muted: #cbd5e1;
+  --sv-accent: #60a5fa;
+  --sv-accent-contrast: #0b1120;
+  --sv-highlight: #fbbf24;
+  --sv-danger: #f87171;
+  --sv-warning: #facc15;
+}
+
+@theme inline {
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Code', Consolas, Menlo, monospace;
+  --color-bg: var(--sv-bg);
+  --color-surface: var(--sv-surface);
+  --color-surface-muted: var(--sv-surface-muted);
+  --color-border: var(--sv-border);
+  --color-text: var(--sv-text);
+  --color-text-muted: var(--sv-text-muted);
+  --color-accent: var(--sv-accent);
+  --color-accent-contrast: var(--sv-accent-contrast);
+  --color-highlight: var(--sv-highlight);
+  --color-danger: var(--sv-danger);
+  --color-warning: var(--sv-warning);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+}
