@@ -8,10 +8,10 @@ relevantes à tarefa (mapa abaixo), não o arquivo inteiro.
 
 ## Estado atual
 
-Etapa 1 (scaffold) concluída. Próxima etapa = **etapa 2 da seção 14** (`schema/` + `validate`
-
-- exemplo + testes). Plano e checklist: [tasks/plan.md](tasks/plan.md), [tasks/todo.md](tasks/todo.md).
-  Atualize esta linha ao concluir cada etapa.
+Etapas 1 (scaffold) e 2 (schema + validate + exemplo + preprocess) concluídas. Próxima etapa =
+**etapa 3 da seção 14** (`graph/`: tree, visibility, aggregate, flowPath, positions). Plano e
+checklist: [tasks/plan.md](tasks/plan.md), [tasks/todo.md](tasks/todo.md). Atualize esta linha ao
+concluir cada etapa.
 
 ## Stack (SPEC §2)
 
@@ -77,4 +77,6 @@ entrada). Componentes só renderizam e despacham ações. Todo localStorage via 
   chamar elkjs direto (sem worker) nos testes.
 - Rotas do ELK são descartadas; arestas = `smoothstep` do React Flow.
 - Posições salvas são relativas ao pai.
-- Repositório git em `main` (inicializado no scaffold, ainda sem commits).
+- Repositório git em `main`; um commit por etapa (fim de cada fase do `tasks/plan.md`).
+- Aviso 1 da §4.2 (passos de fluxo) é sensível a ramificação — ver `DECISIONS.md`.
+- Não usar `python3` no Bash (é o stub da Microsoft Store e trava); use `node`.

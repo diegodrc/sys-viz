@@ -14,12 +14,12 @@ Gate after every task: `npm test && npm run typecheck && npm run lint`.
 
 ## Phase 2 — Schema & validation
 
-- [ ] T2.1 Zod schema + example-system.json (verbatim §10)
-- [ ] T2.2 validate — error rules 1–9
-- [ ] T2.3 validate — warnings 1–4; example = 0 errors / 0 warnings
-- [ ] T2.4 migrations + jsonSchema
-- [ ] T2.5 import/preprocess
-- [ ] **Checkpoint 2**
+- [x] T2.1 Zod schema + example-system.json (verbatim §10)
+- [x] T2.2 validate — error rules 1–9
+- [x] T2.3 validate — warnings 1–4; example = 0 errors / 0 warnings
+- [x] T2.4 migrations + jsonSchema
+- [x] T2.5 import/preprocess
+- [x] **Checkpoint 2**
 
 ## Phase 3 — Graph logic
 

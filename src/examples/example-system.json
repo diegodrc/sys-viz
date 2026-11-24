@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 1,
+  "id": "exemplo-pedidos",
+  "name": "Sistema de exemplo — Pedidos",
+  "description": "Exemplo genérico: frontend atrás de CDN, APIs em Kubernetes, fila em tabela SQL, gateways e mensageria RabbitMQ.",
+  "nodes": [
+    { "id": "usuario", "name": "Usuário", "type": "user", "description": "Cliente acessando pelo navegador." },
+    { "id": "akamai", "name": "Akamai", "type": "cdn", "technology": "Akamai", "hosting": { "platform": "saas" }, "description": "CDN/WAF na frente do frontend." },
+    {
+      "id": "portal-web", "name": "Portal Web", "type": "application",
+      "hosting": { "platform": "kubernetes" },
+      "children": [
+        { "id": "ingress-portal", "name": "Ingress NGINX Portal", "type": "ingress", "technology": "NGINX Ingress Controller", "hosting": { "platform": "kubernetes" }, "confidence": "assumed" },
+        { "id": "frontend-portal", "name": "Frontend Portal", "type": "frontend", "technology": "SPA", "hosting": { "platform": "kubernetes" } }
+      ]
+    },
+    { "id": "apigee", "name": "Apigee", "type": "gateway", "technology": "Apigee", "hosting": { "platform": "saas" }, "description": "Proxy de API para a API de pedidos." },
+    {
+      "id": "sistema-pedidos", "name": "Sistema Pedidos", "type": "application",
+      "technology": ".NET", "hosting": { "platform": "kubernetes" },
+      "children": [
+        { "id": "ingress-pedidos", "name": "Ingress NGINX Pedidos", "type": "ingress", "technology": "NGINX Ingress Controller", "hosting": { "platform": "kubernetes" }, "confidence": "assumed" },
+        { "id": "api-pedidos", "name": "API Pedidos", "type": "api", "technology": ".NET", "hosting": { "platform": "kubernetes" }, "description": "Recebe a requisição e registra na fila." },
+        { "id": "worker-pedidos", "name": "Worker Fila Pedidos", "type": "worker", "technology": ".NET", "hosting": { "platform": "kubernetes" }, "description": "Lê os registros da fila e chama a API de validação para cada um.", "confidence": "assumed", "metadata": { "observacao": "Não confirmado se o worker pertence a esta aplicação." } },
+        {
+          "id": "db-pedidos", "name": "Banco Pedidos", "type": "database", "technology": "SQL Server",
+          "children": [
+            { "id": "fila-pedidos", "name": "Fila Pedidos", "type": "queue", "technology": "SQL Server (tabela)", "description": "Tabela usada como fila." }
+          ]
+        }
+      ]
+    },
+    { "id": "ca-gateway", "name": "CA Gateway", "type": "gateway", "technology": "CA API Gateway" },
+    {
+      "id": "sistema-validacao", "name": "Sistema Validação", "type": "application",
+      "technology": ".NET", "hosting": { "platform": "kubernetes" },
+      "children": [
+        { "id": "ingress-validacao", "name": "Ingress NGINX Validação", "type": "ingress", "technology": "NGINX Ingress Controller", "hosting": { "platform": "kubernetes" }, "confidence": "assumed" },
+        { "id": "api-validacao", "name": "API Validação", "type": "api", "technology": ".NET", "hosting": { "platform": "kubernetes" }, "description": "Verifica dados e publica mensagens nas exchanges." },
+        { "id": "db-validacao", "name": "Banco Validação", "type": "database" },
+        { "id": "consumer-a", "name": "Consumer A", "type": "consumer", "hosting": { "platform": "kubernetes" }, "description": "Salva dados no Banco Destino A." },
+        { "id": "consumer-b", "name": "Consumer B", "type": "consumer", "hosting": { "platform": "kubernetes" }, "description": "Salva dados no Banco Destino B e chama o sistema externo." },
+        { "id": "db-destino-a", "name": "Banco Destino A", "type": "database" },
+        { "id": "db-destino-b", "name": "Banco Destino B", "type": "database" }
+      ]
+    },
+    {
+      "id": "rabbitmq", "name": "RabbitMQ", "type": "broker", "technology": "RabbitMQ",
+      "children": [
+        { "id": "exchange-a", "name": "Exchange A", "type": "exchange", "metadata": { "exchangeType": "direct" } },
+        { "id": "exchange-b", "name": "Exchange B", "type": "exchange", "metadata": { "exchangeType": "direct" } },
+        { "id": "fila-a", "name": "Fila A", "type": "queue" },
+        { "id": "fila-b", "name": "Fila B", "type": "queue" }
+      ]
+    },
+    { "id": "sistema-externo", "name": "Sistema Externo", "type": "external" }
+  ],
+  "edges": [
+    { "id": "e01", "source": "usuario", "target": "akamai", "protocol": "HTTPS", "mode": "sync", "label": "acessa o portal" },
+    { "id": "e02", "source": "akamai", "target": "ingress-portal", "protocol": "HTTPS", "mode": "sync", "confidence": "assumed" },
+    { "id": "e03", "source": "ingress-portal", "target": "frontend-portal", "protocol": "HTTP", "mode": "sync", "confidence": "assumed" },
+    { "id": "e04", "source": "frontend-portal", "target": "apigee", "protocol": "HTTPS", "mode": "sync", "label": "chama API" },
+    { "id": "e05", "source": "apigee", "target": "ingress-pedidos", "protocol": "HTTPS", "mode": "sync", "confidence": "assumed" },
+    { "id": "e06", "source": "ingress-pedidos", "target": "api-pedidos", "protocol": "HTTP", "mode": "sync", "confidence": "assumed" },
+    { "id": "e07", "source": "api-pedidos", "target": "fila-pedidos", "protocol": "SQL", "mode": "sync", "label": "INSERT na fila" },
+    { "id": "e08", "source": "fila-pedidos", "target": "worker-pedidos", "protocol": "SQL", "mode": "async", "label": "polling", "metadata": { "initiator": "worker-pedidos" } },
+    { "id": "e09", "source": "worker-pedidos", "target": "ca-gateway", "protocol": "HTTPS", "mode": "sync", "label": "1 chamada por registro" },
+    { "id": "e10", "source": "ca-gateway", "target": "ingress-validacao", "protocol": "HTTPS", "mode": "sync", "confidence": "assumed" },
+    { "id": "e11", "source": "ingress-validacao", "target": "api-validacao", "protocol": "HTTP", "mode": "sync", "confidence": "assumed" },
+    { "id": "e12", "source": "api-validacao", "target": "db-validacao", "protocol": "SQL", "mode": "sync", "label": "consulta dados" },
+    { "id": "e13", "source": "api-validacao", "target": "exchange-a", "protocol": "AMQP", "mode": "async", "label": "publica", "metadata": { "routingKey": "rk-a" } },
+    { "id": "e14", "source": "api-validacao", "target": "exchange-b", "protocol": "AMQP", "mode": "async", "label": "publica", "metadata": { "routingKey": "rk-b" } },
+    { "id": "e15", "source": "exchange-a", "target": "fila-a", "protocol": "AMQP", "mode": "async", "label": "binding rk-a", "metadata": { "routingKey": "rk-a" } },
+    { "id": "e16", "source": "exchange-b", "target": "fila-b", "protocol": "AMQP", "mode": "async", "label": "binding rk-b", "metadata": { "routingKey": "rk-b" } },
+    { "id": "e17", "source": "fila-a", "target": "consumer-a", "protocol": "AMQP", "mode": "async", "label": "consome" },
+    { "id": "e18", "source": "fila-b", "target": "consumer-b", "protocol": "AMQP", "mode": "async", "label": "consome" },
+    { "id": "e19", "source": "consumer-a", "target": "db-destino-a", "protocol": "SQL", "mode": "sync", "label": "salva dados" },
+    { "id": "e20", "source": "consumer-b", "target": "db-destino-b", "protocol": "SQL", "mode": "sync", "label": "salva dados" },
+    { "id": "e21", "source": "consumer-b", "target": "sistema-externo", "protocol": "HTTPS", "mode": "sync", "label": "chama API externa" }
+  ],
+  "flows": [
+    {
+      "id": "fluxo-recebimento",
+      "name": "Recebimento do pedido",
+      "description": "Do clique do usuário até o registro na fila SQL.",
+      "steps": [
+        { "edgeId": "e01" }, { "edgeId": "e02" }, { "edgeId": "e03" }, { "edgeId": "e04" },
+        { "edgeId": "e05" }, { "edgeId": "e06" },
+        { "edgeId": "e07", "note": "A API grava o registro na tabela-fila e responde." }
+      ]
+    },
+    {
+      "id": "fluxo-processamento",
+      "name": "Processamento assíncrono",
+      "description": "Do worker até a gravação final e a chamada externa.",
+      "steps": [
+        { "edgeId": "e08", "note": "Worker lê registros pendentes." },
+        { "edgeId": "e09" }, { "edgeId": "e10" }, { "edgeId": "e11" },
+        { "edgeId": "e12" },
+        { "edgeId": "e13", "note": "Ramo A." }, { "edgeId": "e15" }, { "edgeId": "e17" }, { "edgeId": "e19" },
+        { "edgeId": "e14", "note": "Ramo B." }, { "edgeId": "e16" }, { "edgeId": "e18" }, { "edgeId": "e20" }, { "edgeId": "e21" }
+      ]
+    }
+  ]
+}
