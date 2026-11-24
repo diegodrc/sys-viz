@@ -23,11 +23,11 @@ Gate after every task: `npm test && npm run typecheck && npm run lint`.
 
 ## Phase 3 — Graph logic
 
-- [ ] T3.1 tree + visibility (9 / 13 / 27 nodes)
-- [ ] T3.2 aggregateEdges (9 / 12 / 21 edges)
-- [ ] T3.3 flowPath (formatSteps, badges, expandPath)
-- [ ] T3.4 positions (merge, bbox, negative compensation)
-- [ ] **Checkpoint 3** — A2–A4, A6 badges, A7 at logic level
+- [x] T3.1 tree + visibility (9 / 13 / 27 nodes)
+- [x] T3.2 aggregateEdges (9 / 12 / 21 edges)
+- [x] T3.3 flowPath (formatSteps, badges, expandPath)
+- [x] T3.4 positions (merge, bbox, negative compensation)
+- [x] **Checkpoint 3** — A2–A4, A6 badges, A7 at logic level
 
 ## Phase 4 — Storage, store, sidebar
 

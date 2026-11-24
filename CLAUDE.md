@@ -8,9 +8,9 @@ relevantes à tarefa (mapa abaixo), não o arquivo inteiro.
 
 ## Estado atual
 
-Etapas 1 (scaffold) e 2 (schema + validate + exemplo + preprocess) concluídas. Próxima etapa =
-**etapa 3 da seção 14** (`graph/`: tree, visibility, aggregate, flowPath, positions). Plano e
-checklist: [tasks/plan.md](tasks/plan.md), [tasks/todo.md](tasks/todo.md). Atualize esta linha ao
+Etapas 1 (scaffold), 2 (schema + validate + exemplo + preprocess) e 3 (`graph/`: tree,
+visibility, aggregate, flowPath, positions) concluídas. Próxima etapa = **etapa 4 da seção 14**
+(`storage/` + store Zustand + sidebar, importar/exportar/backup). Plano e checklist: [tasks/plan.md](tasks/plan.md), [tasks/todo.md](tasks/todo.md). Atualize esta linha ao
 concluir cada etapa.
 
 ## Stack (SPEC §2)
