@@ -9,6 +9,7 @@ export function SystemMenu() {
   const currentId = useApp((s) => s.current?.doc.id);
   const systems = useApp((s) => s.systems);
   const openSystem = useApp((s) => s.openSystem);
+  const select = useApp((s) => s.select);
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -60,6 +61,21 @@ export function SystemMenu() {
               </button>
             </li>
           ))}
+          {currentId && (
+            <li role="none" className="mt-1 border-t border-border pt-1">
+              <button
+                type="button"
+                role="menuitem"
+                className="block w-full px-3 py-1.5 text-left text-sm hover:bg-surface-muted"
+                onClick={() => {
+                  setOpen(false);
+                  select({ kind: 'system' });
+                }}
+              >
+                {t.topbar.systemDetails}
+              </button>
+            </li>
+          )}
         </ul>
       )}
     </div>

@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useApp, useAppStoreApi } from '../store/context';
 import { Canvas } from './Canvas/Canvas';
 import { NoticeBar } from './common/NoticeBar';
+import { DetailsPanel } from './DetailsPanel/DetailsPanel';
 import { ErrorBoundary } from './ErrorBoundary';
 import { ImportDialog } from './ImportDialog/ImportDialog';
 import { Sidebar } from './Sidebar/Sidebar';
@@ -30,6 +31,7 @@ export function AppShell() {
             <Canvas />
           </ErrorBoundary>
         </main>
+        <DetailsPanel />
       </div>
       <ImportDialog />
     </div>

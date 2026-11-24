@@ -5,6 +5,9 @@ import { exampleDoc } from '../test/fixtures';
 import { testStorage, type TestStorage } from '../test/storage';
 import { createTestStore } from '../test/store';
 
+/** First ELK use loads a large bundle; parallel test files can make it slow. */
+const ELK_TIMEOUT = 10_000;
+
 let clock = Date.parse('2026-11-24T12:00:00.000Z');
 
 function setup(storage: TestStorage = testStorage()) {
@@ -236,10 +239,13 @@ describe('canvas state (SPEC §5.5, §5.6)', () => {
   async function laidOut() {
     const ctx = setup();
     ctx.s().init();
-    await vi.waitFor(() => {
-      expect(ctx.s().layoutPending).toBe(false);
-      expect(ctx.s().layout).toBeDefined();
-    });
+    await vi.waitFor(
+      () => {
+        expect(ctx.s().layoutPending).toBe(false);
+        expect(ctx.s().layout).toBeDefined();
+      },
+      { timeout: ELK_TIMEOUT },
+    );
     return ctx;
   }
 
@@ -254,7 +260,9 @@ describe('canvas state (SPEC §5.5, §5.6)', () => {
     const updatedAt = s().systems[0]?.updatedAt;
     const revision = s().layout?.revision ?? 0;
     s().toggleExpanded('sistema-pedidos');
-    await vi.waitFor(() => expect(s().layout?.revision).toBe(revision + 1));
+    await vi.waitFor(() => expect(s().layout?.revision).toBe(revision + 1), {
+      timeout: ELK_TIMEOUT,
+    });
     expect(Object.keys(s().layout?.boxes ?? {})).toHaveLength(13);
     expect(JSON.parse(storage.getItem(uiKey('exemplo-pedidos')) ?? '{}')).toEqual({
       expandedIds: ['sistema-pedidos'],
@@ -266,7 +274,7 @@ describe('canvas state (SPEC §5.5, §5.6)', () => {
     const { s } = await laidOut();
     s().toggleExpanded('sistema-pedidos');
     s().toggleExpanded('rabbitmq');
-    await vi.waitFor(() => expect(s().layoutPending).toBe(false));
+    await vi.waitFor(() => expect(s().layoutPending).toBe(false), { timeout: ELK_TIMEOUT });
     const boxes = s().layout?.boxes ?? {};
     expect(boxes['api-pedidos']).toBeDefined();
     expect(boxes['fila-a']).toBeDefined();
@@ -313,7 +321,39 @@ describe('canvas state (SPEC §5.5, §5.6)', () => {
     const revision = s().layout?.revision ?? 0;
     s().resetLayout();
     expect(s().current?.doc.layout?.positions).toEqual({});
-    await vi.waitFor(() => expect(s().layout?.revision).toBe(revision + 1));
+    await vi.waitFor(() => expect(s().layout?.revision).toBe(revision + 1), {
+      timeout: ELK_TIMEOUT,
+    });
     expect(s().layout?.boxes.apigee).not.toMatchObject({ x: 123, y: 456 });
+  });
+});
+
+describe('edits (SPEC §6.6)', () => {
+  it('updateNode persists and updates updatedAt; focusNode expands ancestors', () => {
+    const { s, storage } = setup();
+    s().init();
+    const before = s().systems[0]?.updatedAt;
+    s().focusNode('fila-pedidos');
+    expect([...(s().current?.expanded ?? [])].sort()).toEqual(['db-pedidos', 'sistema-pedidos']);
+    expect(s().selection).toEqual({ kind: 'node', id: 'fila-pedidos' });
+    expect(
+      s().updateNode({
+        id: 'fila-pedidos',
+        name: 'Fila',
+        type: 'queue',
+        technology: 'SQL Server (tabela)',
+      }),
+    ).toBe(true);
+    expect(s().systems[0]?.updatedAt).not.toBe(before);
+    expect(storage.getItem(systemKey('exemplo-pedidos'))).toContain('"name":"Fila"');
+  });
+
+  it('a failed write keeps the previous document', () => {
+    const { s, storage } = setup();
+    s().init();
+    storage.failWritesTo((key) => key.startsWith('sysviz:system:'));
+    expect(s().updateSystemInfo({ name: 'X', description: undefined })).toBe(false);
+    expect(s().current?.doc.name).toBe('Sistema de exemplo — Pedidos');
+    expect(s().notice?.kind).toBe('error');
   });
 });

@@ -13,6 +13,7 @@ import {
 } from '@xyflow/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { aggregateEdges } from '../../graph/aggregate';
+import { stepLocation } from '../../graph/flowPath';
 import { buildTree } from '../../graph/tree';
 import { t } from '../../i18n/pt-BR';
 import { useApp } from '../../store/context';
@@ -45,7 +46,13 @@ function CanvasInner() {
   const edgesById = useMemo(() => new Map((doc?.edges ?? []).map((e) => [e.id, e])), [doc]);
   const boxes = layout && doc && layout.docId === doc.id ? layout.boxes : undefined;
   const selectedNode = selection?.kind === 'node' ? selection.id : undefined;
-  const selectedEdge = selection?.kind === 'edge' ? selection.id : undefined;
+  // an original edge selected in the panel highlights the rendered edge that contains it
+  const selectedEdge = useMemo(() => {
+    if (selection?.kind === 'edge') return selection.id;
+    if (selection?.kind !== 'docEdge' || !tree || !expanded) return undefined;
+    const location = stepLocation(edgesById.get(selection.id), tree, expanded);
+    return location.kind === 'rendered' ? location.renderedEdgeId : undefined;
+  }, [selection, tree, expanded, edgesById]);
 
   const derivedNodes = useMemo(
     () => (tree && expanded && boxes ? buildFlowNodes(tree, expanded, boxes, selectedNode) : []),

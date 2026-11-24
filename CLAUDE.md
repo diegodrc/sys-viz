@@ -8,9 +8,10 @@ relevantes à tarefa (mapa abaixo), não o arquivo inteiro.
 
 ## Estado atual
 
-Etapas 1–5 concluídas (scaffold; schema/validate; `graph/`; storage + store + sidebar +
-importar/exportar/backup; canvas React Flow + ELK em worker + expandir/colapsar + arrasto +
-reset). Próxima etapa = **etapa 6 da seção 14** (painel de detalhes + edição). Plano e checklist: [tasks/plan.md](tasks/plan.md), [tasks/todo.md](tasks/todo.md). Atualize esta linha ao
+Etapas 1–6 concluídas (scaffold; schema/validate; `graph/`; storage + store + sidebar +
+importar/exportar/backup; canvas React Flow + ELK; painel de detalhes + edição). Próxima etapa =
+**etapa 7 da seção 14** (fluxos: destaque, badges, expandir caminho, passo a passo). Plano e
+checklist: [tasks/plan.md](tasks/plan.md), [tasks/todo.md](tasks/todo.md). Atualize esta linha ao
 concluir cada etapa.
 
 ## Stack (SPEC §2)
@@ -86,4 +87,6 @@ entrada). Componentes só renderizam e despacham ações. Todo localStorage via 
   (`applyNodeChanges`, `NodeProps<T>`, `parentId`).
 - No painel do navegador a aba pode ficar `document.hidden`: screenshots/rAF ficam parados; verifique
   pelo DOM (`.react-flow__node`, `.react-flow__edge`) e pelo localStorage.
+- Aba `document.hidden` no painel também **não recebe cliques reais**; dirija a UI por eventos DOM
+  (`dispatchEvent`, setter nativo de `value` + evento `input`).
 - Não usar `python3` no Bash (é o stub da Microsoft Store e trava); use `node`.

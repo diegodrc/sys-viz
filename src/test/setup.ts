@@ -1,7 +1,10 @@
 // jsdom lacks layout APIs that React Flow relies on (SPEC §12). Provide minimal stand-ins.
 import '@testing-library/jest-dom/vitest';
-import { cleanup } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
 import { afterEach } from 'vitest';
+
+// first ELK layout loads a large bundle; give async queries room when files run in parallel
+configure({ asyncUtilTimeout: 10_000 });
 
 afterEach(() => {
   cleanup();

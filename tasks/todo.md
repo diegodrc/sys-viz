@@ -48,10 +48,10 @@ Gate after every task: `npm test && npm run typecheck && npm run lint`.
 
 ## Phase 6 — Details panel
 
-- [ ] T6.1 Read-only panel (node/edge/aggregated/flow/system)
-- [ ] T6.2 Node edit form (A11)
-- [ ] T6.3 Edge / flow / system edit forms
-- [ ] **Checkpoint 6**
+- [x] T6.1 Read-only panel (node/edge/aggregated/flow/system)
+- [x] T6.2 Node edit form (A11)
+- [x] T6.3 Edge / flow / system edit forms
+- [x] **Checkpoint 6**
 
 ## Phase 7 — Flows
 

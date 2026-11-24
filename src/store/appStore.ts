@@ -21,7 +21,8 @@ import {
   type BackupConflictStrategy,
 } from '../import/importSystem';
 import type { Issue } from '../schema/result';
-import type { SystemDoc } from '../schema/system';
+import { replaceEdge, replaceFlow, replaceNode, replaceSystemInfo } from '../schema/edit';
+import type { Flow, SysEdge, SysNode, SystemDoc } from '../schema/system';
 import { validateSystemDoc } from '../schema/validate';
 import type { InvalidBackupEntry } from '../storage/backup';
 import {
@@ -57,7 +58,16 @@ export interface AppDeps {
   layout: LayoutEngine;
 }
 
-export type Selection = { kind: 'node'; id: string } | { kind: 'edge'; id: string };
+/**
+ * What the details panel shows (SPEC §6.6): a node, a rendered (possibly aggregated) edge, an
+ * original document edge, a flow, or the system itself.
+ */
+export type Selection =
+  | { kind: 'node'; id: string }
+  | { kind: 'edge'; id: string }
+  | { kind: 'docEdge'; id: string }
+  | { kind: 'flow'; id: string }
+  | { kind: 'system' };
 
 export interface CanvasLayout {
   docId: string;
@@ -131,6 +141,14 @@ export interface AppState {
   dropNode: (id: string, position: { x: number; y: number }) => void;
   /** "Resetar layout": clears saved positions and re-runs ELK. */
   resetLayout: () => void;
+
+  /** "clicar navega": expands the node's ancestors if needed and selects it. */
+  focusNode: (id: string) => void;
+  // Edits (SPEC §6.6): validated drafts are applied, persisted and update `updatedAt`.
+  updateNode: (node: SysNode) => boolean;
+  updateEdge: (edge: SysEdge) => boolean;
+  updateFlow: (flow: Flow) => boolean;
+  updateSystemInfo: (info: { name: string; description: string | undefined }) => boolean;
 }
 
 export type AppStore = StoreApi<AppState>;
@@ -220,6 +238,16 @@ export function createAppStore(deps: AppDeps): AppStore {
     };
 
     /** SPEC §6.4: if the selected node became hidden, select its deepest visible ancestor. */
+    /** Applies an edit to the open document and persists it (memory updated only on success). */
+    const applyEdit = (edit: (doc: SystemDoc) => SystemDoc): boolean => {
+      const current = get().current;
+      if (!current) return false;
+      const doc = edit(current.doc);
+      if (!persistDoc(doc, false)) return false;
+      set({ current: { ...current, doc } });
+      return true;
+    };
+
     const fixSelection = (tree: TreeIndex, expanded: ReadonlySet<string>): void => {
       const selection = get().selection;
       if (selection?.kind === 'node' && !isVisible(selection.id, tree, expanded)) {
@@ -538,6 +566,34 @@ export function createAppStore(deps: AppDeps): AppStore {
           return;
         }
         set({ current: { ...current, doc }, layout: { ...layout, boxes: settled.boxes } });
+      },
+
+      focusNode(id) {
+        const current = get().current;
+        if (!current) return;
+        const tree = buildTree(current.doc);
+        if (!tree.byId.has(id)) return;
+        const ancestors = tree.ancestorsOf(id);
+        if (ancestors.some((a) => !current.expanded.has(a))) {
+          applyExpansion([...current.expanded, ...ancestors]);
+        }
+        set({ selection: { kind: 'node', id } });
+      },
+
+      updateNode(node) {
+        return applyEdit((doc) => replaceNode(doc, node));
+      },
+
+      updateEdge(edge) {
+        return applyEdit((doc) => replaceEdge(doc, edge));
+      },
+
+      updateFlow(flow) {
+        return applyEdit((doc) => replaceFlow(doc, flow));
+      },
+
+      updateSystemInfo(info) {
+        return applyEdit((doc) => replaceSystemInfo(doc, info));
       },
 
       resetLayout() {

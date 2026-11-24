@@ -163,7 +163,8 @@ function nearestId(data: unknown, path: readonly PathSegment[]): string | undefi
   return found;
 }
 
-function schemaMessage(issue: z.core.$ZodIssue): string {
+/** pt-BR message for one Zod issue (shared by import validation and edit forms). */
+export function issueMessage(issue: z.core.$ZodIssue): string {
   const m = t.validation.schema;
   switch (issue.code) {
     case 'invalid_type':
@@ -188,7 +189,7 @@ function schemaMessage(issue: z.core.$ZodIssue): string {
 function schemaIssues(data: unknown, issues: readonly z.core.$ZodIssue[]): Issue[] {
   return issues.map((issue) => {
     const path = issue.path.map((p): PathSegment => (typeof p === 'number' ? p : String(p)));
-    const message = schemaMessage(issue);
+    const message = issueMessage(issue);
     const id = nearestId(data, path);
     return error(formatPath(path), id ? t.validation.schema.withId(message, id) : message);
   });
