@@ -18,7 +18,7 @@
     "format": "prettier --write ."
   },
   "dependencies": {
-    "@xyflow/react": "13.0.3",
+    "@xyflow/react": "12.12.1",
     "elkjs": "0.12.1",
     "lucide-react": "1.79.0",
     "react": "19.3.1",

@@ -1,8 +1,18 @@
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import example from '../examples/example-system.json';
-import { buildTree } from '../graph/tree';
-import { pruneExpanded } from '../graph/visibility';
+import { aggregateEdges } from '../graph/aggregate';
+import {
+  applySavedPositions,
+  buildElkGraph,
+  readElkLayout,
+  settleDrag,
+  type Boxes,
+} from '../graph/layout';
+import { positionsOf, resetPositions, setPositions } from '../graph/positions';
+import { buildTree, type TreeIndex } from '../graph/tree';
+import { isVisible, pruneExpanded, visibleAncestor } from '../graph/visibility';
 import { t } from '../i18n/pt-BR';
+import type { LayoutEngine } from '../layout/engine';
 import {
   asCopy,
   asReplacement,
@@ -27,6 +37,7 @@ import {
   saveIndex,
   savePrefs,
   saveSystem,
+  saveUiState,
   type CorruptEntry,
   type IndexEntry,
   type Prefs,
@@ -42,6 +53,18 @@ export interface AppDeps {
   /** False when localStorage is unavailable and an in-memory fallback is used. */
   persistent: boolean;
   now: () => Date;
+  /** Runs ELK (Web Worker in the browser, direct call in tests). */
+  layout: LayoutEngine;
+}
+
+export type Selection = { kind: 'node'; id: string } | { kind: 'edge'; id: string };
+
+export interface CanvasLayout {
+  docId: string;
+  /** Node boxes relative to their parent, after saved positions were applied. */
+  boxes: Boxes;
+  /** Incremented on every ELK result (the canvas fits the view when it changes). */
+  revision: number;
 }
 
 export type Notice =
@@ -72,6 +95,10 @@ export interface AppState {
   notice: Notice | undefined;
   /** Import dialog state; undefined when the dialog is closed. */
   importer: ImportStep | undefined;
+  layout: CanvasLayout | undefined;
+  /** True while an ELK request for the current state is running. */
+  layoutPending: boolean;
+  selection: Selection | undefined;
 
   init: () => void;
   loadExample: () => void;
@@ -94,6 +121,16 @@ export interface AppState {
   resolveConflict: (choice: 'replace' | 'copy') => void;
   importValidBackupSystems: () => void;
   resolveBackupConflict: (strategy: BackupConflictStrategy) => void;
+
+  /** Expands a collapsed group or collapses an expanded one (SPEC §5.2). */
+  toggleExpanded: (id: string) => void;
+  /** Replaces the expansion state (levels, "Expandir caminho"...). */
+  setExpanded: (ids: Iterable<string>) => void;
+  select: (selection: Selection | undefined) => void;
+  /** Drop of a dragged node at a position relative to its parent (SPEC §5.5). */
+  dropNode: (id: string, position: { x: number; y: number }) => void;
+  /** "Resetar layout": clears saved positions and re-runs ELK. */
+  resetLayout: () => void;
 }
 
 export type AppStore = StoreApi<AppState>;
@@ -148,10 +185,66 @@ export function createAppStore(deps: AppDeps): AppStore {
       savePrefs(storage, prefs);
     };
 
+    let layoutToken = 0;
+
+    /** Runs ELK for the current document and expansion; stale results are discarded. */
+    const requestLayout = (): void => {
+      const current = get().current;
+      if (!current) return;
+      const token = ++layoutToken;
+      const { doc, expanded } = current;
+      const tree = buildTree(doc);
+      const graph = buildElkGraph(tree, expanded, aggregateEdges(doc, expanded, tree));
+      set({ layoutPending: true });
+      deps.layout(graph).then(
+        (result) => {
+          if (token !== layoutToken || get().current?.doc.id !== doc.id) return;
+          // read positions from the latest doc: a drop may have happened meanwhile
+          const latest = get().current?.doc ?? doc;
+          const boxes = applySavedPositions(
+            readElkLayout(result),
+            positionsOf(latest),
+            tree,
+            expanded,
+          );
+          set((state) => ({
+            layout: { docId: doc.id, boxes, revision: (state.layout?.revision ?? 0) + 1 },
+            layoutPending: false,
+          }));
+        },
+        () => {
+          if (token !== layoutToken) return;
+          set({ layoutPending: false, notice: { kind: 'error', message: t.canvas.layoutFailed } });
+        },
+      );
+    };
+
+    /** SPEC §6.4: if the selected node became hidden, select its deepest visible ancestor. */
+    const fixSelection = (tree: TreeIndex, expanded: ReadonlySet<string>): void => {
+      const selection = get().selection;
+      if (selection?.kind === 'node' && !isVisible(selection.id, tree, expanded)) {
+        set({ selection: { kind: 'node', id: visibleAncestor(selection.id, tree, expanded) } });
+      } else if (selection?.kind === 'edge') {
+        set({ selection: undefined });
+      }
+    };
+
+    const applyExpansion = (ids: Iterable<string>): void => {
+      const current = get().current;
+      if (!current) return;
+      const tree = buildTree(current.doc);
+      const expanded = pruneExpanded(tree, ids);
+      set({ current: { ...current, expanded } });
+      saveUiState(storage, current.doc.id, { expandedIds: [...expanded] });
+      fixSelection(tree, expanded);
+      requestLayout();
+    };
+
     const showDoc = (doc: SystemDoc, expandedIds: Iterable<string>): void => {
       const expanded = pruneExpanded(buildTree(doc), expandedIds);
-      set({ current: { doc, expanded } });
+      set({ current: { doc, expanded }, selection: undefined });
       setPrefs({ lastOpenedId: doc.id });
+      requestLayout();
     };
 
     /** Saves a newly imported/created doc and opens it. */
@@ -234,6 +327,9 @@ export function createAppStore(deps: AppDeps): AppStore {
       prefs: DEFAULT_PREFS,
       notice: deps.persistent ? undefined : { kind: 'error', message: t.storage.unavailable },
       importer: undefined,
+      layout: undefined,
+      layoutPending: false,
+      selection: undefined,
 
       init() {
         const firstRun = !hasAnyAppKey(storage);
@@ -408,6 +504,49 @@ export function createAppStore(deps: AppDeps): AppStore {
         const importer = get().importer;
         if (importer?.step !== 'backupConflict') return;
         applyBackup(importer.docs, strategy, importer.warnings);
+      },
+
+      toggleExpanded(id) {
+        const current = get().current;
+        if (!current || !buildTree(current.doc).isGroup(id)) return;
+        const next = new Set(current.expanded);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        applyExpansion(next);
+      },
+
+      setExpanded(ids) {
+        applyExpansion(ids);
+      },
+
+      select(selection) {
+        set({ selection });
+      },
+
+      dropNode(id, position) {
+        const current = get().current;
+        const layout = get().layout;
+        if (!current || layout?.docId !== current.doc.id) return;
+        const tree = buildTree(current.doc);
+        // whole pixels keep the exported JSON readable
+        const rounded = { x: Math.round(position.x), y: Math.round(position.y) };
+        const settled = settleDrag(layout.boxes, tree, positionsOf(current.doc), id, rounded);
+        const doc = setPositions(current.doc, settled.updates);
+        if (!persistDoc(doc, false)) {
+          // storage failed: re-emit the previous boxes so the node snaps back
+          set({ layout: { ...layout, boxes: { ...layout.boxes } } });
+          return;
+        }
+        set({ current: { ...current, doc }, layout: { ...layout, boxes: settled.boxes } });
+      },
+
+      resetLayout() {
+        const current = get().current;
+        if (!current) return;
+        const doc = resetPositions(current.doc);
+        if (!persistDoc(doc, false)) return;
+        set({ current: { ...current, doc } });
+        requestLayout();
       },
     };
   });

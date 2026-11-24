@@ -8,9 +8,9 @@ relevantes à tarefa (mapa abaixo), não o arquivo inteiro.
 
 ## Estado atual
 
-Etapas 1–4 concluídas (scaffold; schema/validate; `graph/`; storage + store + sidebar +
-importar/exportar/backup). Próxima etapa = **etapa 5 da seção 14** (canvas React Flow: nós,
-grupos, arestas, expandir/colapsar, ELK em worker, arrasto, reset). Plano e checklist: [tasks/plan.md](tasks/plan.md), [tasks/todo.md](tasks/todo.md). Atualize esta linha ao
+Etapas 1–5 concluídas (scaffold; schema/validate; `graph/`; storage + store + sidebar +
+importar/exportar/backup; canvas React Flow + ELK em worker + expandir/colapsar + arrasto +
+reset). Próxima etapa = **etapa 6 da seção 14** (painel de detalhes + edição). Plano e checklist: [tasks/plan.md](tasks/plan.md), [tasks/todo.md](tasks/todo.md). Atualize esta linha ao
 concluir cada etapa.
 
 ## Stack (SPEC §2)
@@ -82,4 +82,8 @@ entrada). Componentes só renderizam e despacham ações. Todo localStorage via 
 - Dev server: `.claude/launch.json` fixa a porta 5173 (`--strictPort`); o preview em 4173.
 - Testes de componente: injete um store com `createAppStore({ storage: testStorage(), ... })`
   (`src/test/storage.ts`); o user-event instala seu próprio stub de clipboard.
+- React Flow fixado na **v12** (12.12.1), não v13 — ver `DECISIONS.md`. Use a API v12
+  (`applyNodeChanges`, `NodeProps<T>`, `parentId`).
+- No painel do navegador a aba pode ficar `document.hidden`: screenshots/rAF ficam parados; verifique
+  pelo DOM (`.react-flow__node`, `.react-flow__edge`) e pelo localStorage.
 - Não usar `python3` no Bash (é o stub da Microsoft Store e trava); use `node`.

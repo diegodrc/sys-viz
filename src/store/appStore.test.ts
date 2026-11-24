@@ -1,14 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { toExportJson } from '../storage/backup';
 import { INDEX_KEY, PREFS_KEY, systemKey, uiKey } from '../storage/localStore';
 import { exampleDoc } from '../test/fixtures';
 import { testStorage, type TestStorage } from '../test/storage';
-import { createAppStore } from './appStore';
+import { createTestStore } from '../test/store';
 
 let clock = Date.parse('2026-11-24T12:00:00.000Z');
 
 function setup(storage: TestStorage = testStorage()) {
-  const store = createAppStore({ storage, persistent: true, now: () => new Date((clock += 1000)) });
+  const store = createTestStore({ storage, now: () => new Date((clock += 1000)) });
   return { store, storage, s: () => store.getState() };
 }
 
@@ -229,5 +229,91 @@ describe('backup import (SPEC §6.2 step 6, A20)', () => {
     s().importValidBackupSystems();
     expect(s().systems.map((e) => e.id)).toContain('bom');
     expect(s().systems.map((e) => e.id)).not.toContain('ruim');
+  });
+});
+
+describe('canvas state (SPEC §5.5, §5.6)', () => {
+  async function laidOut() {
+    const ctx = setup();
+    ctx.s().init();
+    await vi.waitFor(() => {
+      expect(ctx.s().layoutPending).toBe(false);
+      expect(ctx.s().layout).toBeDefined();
+    });
+    return ctx;
+  }
+
+  it('opening a system runs ELK for the 9 macro nodes', async () => {
+    const { s } = await laidOut();
+    expect(Object.keys(s().layout?.boxes ?? {})).toHaveLength(9);
+    expect(s().layout?.docId).toBe('exemplo-pedidos');
+  });
+
+  it('expand/collapse re-runs the layout and persists the expansion (not updatedAt)', async () => {
+    const { s, storage } = await laidOut();
+    const updatedAt = s().systems[0]?.updatedAt;
+    const revision = s().layout?.revision ?? 0;
+    s().toggleExpanded('sistema-pedidos');
+    await vi.waitFor(() => expect(s().layout?.revision).toBe(revision + 1));
+    expect(Object.keys(s().layout?.boxes ?? {})).toHaveLength(13);
+    expect(JSON.parse(storage.getItem(uiKey('exemplo-pedidos')) ?? '{}')).toEqual({
+      expandedIds: ['sistema-pedidos'],
+    });
+    expect(s().systems[0]?.updatedAt).toBe(updatedAt);
+  });
+
+  it('only the latest layout request wins', async () => {
+    const { s } = await laidOut();
+    s().toggleExpanded('sistema-pedidos');
+    s().toggleExpanded('rabbitmq');
+    await vi.waitFor(() => expect(s().layoutPending).toBe(false));
+    const boxes = s().layout?.boxes ?? {};
+    expect(boxes['api-pedidos']).toBeDefined();
+    expect(boxes['fila-a']).toBeDefined();
+  });
+
+  it('collapsing a group moves the selection to the visible ancestor', async () => {
+    const { s } = await laidOut();
+    s().toggleExpanded('sistema-pedidos');
+    s().select({ kind: 'node', id: 'api-pedidos' });
+    s().toggleExpanded('sistema-pedidos');
+    expect(s().selection).toEqual({ kind: 'node', id: 'sistema-pedidos' });
+  });
+
+  it('A9: dropping a node saves its position and updatedAt', async () => {
+    const { s, storage } = await laidOut();
+    const before = s().systems[0]?.updatedAt;
+    s().dropNode('apigee', { x: 123, y: 456 });
+    expect(s().layout?.boxes.apigee).toMatchObject({ x: 123, y: 456 });
+    const stored = JSON.parse(storage.getItem(systemKey('exemplo-pedidos')) ?? '{}') as {
+      layout?: { positions?: Record<string, unknown> };
+    };
+    expect(stored.layout?.positions?.apigee).toEqual({ x: 123, y: 456 });
+    expect(s().systems[0]?.updatedAt).not.toBe(before);
+    expect(s().exportableSystem('exemplo-pedidos')?.layout?.positions?.apigee).toEqual({
+      x: 123,
+      y: 456,
+    });
+  });
+
+  it('A9: saved positions survive a reload and override ELK', async () => {
+    const first = await laidOut();
+    first.s().dropNode('apigee', { x: 123, y: 456 });
+
+    const second = setup(first.storage);
+    second.s().init();
+    await vi.waitFor(() =>
+      expect(second.s().layout?.boxes.apigee).toMatchObject({ x: 123, y: 456 }),
+    );
+  });
+
+  it('A10: reset layout empties layout.positions and re-runs ELK', async () => {
+    const { s } = await laidOut();
+    s().dropNode('apigee', { x: 123, y: 456 });
+    const revision = s().layout?.revision ?? 0;
+    s().resetLayout();
+    expect(s().current?.doc.layout?.positions).toEqual({});
+    await vi.waitFor(() => expect(s().layout?.revision).toBe(revision + 1));
+    expect(s().layout?.boxes.apigee).not.toMatchObject({ x: 123, y: 456 });
   });
 });

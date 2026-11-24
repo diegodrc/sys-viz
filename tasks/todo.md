@@ -40,11 +40,11 @@ Gate after every task: `npm test && npm run typecheck && npm run lint`.
 
 ## Phase 5 — Canvas
 
-- [ ] T5.1 Nodes/groups/edges rendering (A5; 9/9 component test)
-- [ ] T5.2 ELK layout in inline worker
-- [ ] T5.3 Expand/collapse + persisted expansion (A3)
-- [ ] T5.4 Drag + saved positions + reset layout (A9, A10)
-- [ ] **Checkpoint 5** — incl. layout on `file://`
+- [x] T5.1 Nodes/groups/edges rendering (A5; 9/9 component test)
+- [x] T5.2 ELK layout in inline worker
+- [x] T5.3 Expand/collapse + persisted expansion (A3)
+- [x] T5.4 Drag + saved positions + reset layout (A9, A10)
+- [x] **Checkpoint 5** — incl. layout on `file://`
 
 ## Phase 6 — Details panel
 

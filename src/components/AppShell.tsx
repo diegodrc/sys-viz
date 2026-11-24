@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useApp, useAppStoreApi } from '../store/context';
-import { CanvasPlaceholder } from './Canvas/CanvasPlaceholder';
+import { Canvas } from './Canvas/Canvas';
 import { NoticeBar } from './common/NoticeBar';
 import { ErrorBoundary } from './ErrorBoundary';
 import { ImportDialog } from './ImportDialog/ImportDialog';
@@ -27,7 +27,7 @@ export function AppShell() {
         {sidebarOpen && <Sidebar />}
         <main className="relative min-w-0 flex-1">
           <ErrorBoundary resetKey={currentId} onReset={closeSystem}>
-            <CanvasPlaceholder />
+            <Canvas />
           </ErrorBoundary>
         </main>
       </div>

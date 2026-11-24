@@ -1,24 +1,24 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { App } from './App';
 import { t } from './i18n/pt-BR';
 import { systemKey } from './storage/localStore';
-import { createAppStore } from './store/appStore';
+import { createTestStore } from './test/store';
 import { exampleDoc } from './test/fixtures';
 import { testStorage } from './test/storage';
 
 const EXAMPLE_NAME = 'Sistema de exemplo — Pedidos';
 
 function renderApp(storage = testStorage()) {
-  const store = createAppStore({ storage, persistent: true, now: () => new Date() });
+  const store = createTestStore({ storage });
   const user = userEvent.setup();
   render(<App store={store} />);
   return { store, storage, user };
 }
 
 describe('App shell', () => {
-  it('A1: first run shows the example opened and listed', () => {
+  it('A1: first run shows the example opened and listed', async () => {
     renderApp();
     const sidebar = screen.getByRole('complementary', { name: t.systems.title });
     expect(
@@ -27,8 +27,12 @@ describe('App shell', () => {
     expect(screen.getByRole('button', { name: t.topbar.systemMenu })).toHaveTextContent(
       EXAMPLE_NAME,
     );
-    // macro view: 9 visible nodes
-    expect(screen.getByText(t.canvas.placeholder(EXAMPLE_NAME, 9))).toBeInTheDocument();
+    // A2 (component): the macro view renders 9 nodes and 9 edges in React Flow
+    await waitFor(() => {
+      expect(document.querySelectorAll('.react-flow__node')).toHaveLength(9);
+    });
+    expect(document.querySelectorAll('.react-flow__edge')).toHaveLength(9);
+    expect(screen.getAllByText('×2')).toHaveLength(2);
   });
 
   it('deleting asks for confirmation with the system name, then shows the empty state', async () => {
