@@ -31,12 +31,12 @@ Gate after every task: `npm test && npm run typecheck && npm run lint`.
 
 ## Phase 4 — Storage, store, sidebar
 
-- [ ] T4.1 storage/localStore (rollback, quota, corruption, index repair)
-- [ ] T4.2 Zustand store + first run loads example (A1) + Error Boundary
-- [ ] T4.3 Sidebar: list, open, rename, duplicate, delete, corrupted banner, empty state
-- [ ] T4.4 Import dialog + importSystem conflicts (A12, A13, A14)
-- [ ] T4.5 Export system + backup export/import (A20)
-- [ ] **Checkpoint 4**
+- [x] T4.1 storage/localStore (rollback, quota, corruption, index repair)
+- [x] T4.2 Zustand store + first run loads example (A1) + Error Boundary
+- [x] T4.3 Sidebar: list, open, rename, duplicate, delete, corrupted banner, empty state
+- [x] T4.4 Import dialog + importSystem conflicts (A12, A13, A14)
+- [x] T4.5 Export system + backup export/import (A20)
+- [x] **Checkpoint 4**
 
 ## Phase 5 — Canvas
 

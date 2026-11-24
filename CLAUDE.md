@@ -8,9 +8,9 @@ relevantes à tarefa (mapa abaixo), não o arquivo inteiro.
 
 ## Estado atual
 
-Etapas 1 (scaffold), 2 (schema + validate + exemplo + preprocess) e 3 (`graph/`: tree,
-visibility, aggregate, flowPath, positions) concluídas. Próxima etapa = **etapa 4 da seção 14**
-(`storage/` + store Zustand + sidebar, importar/exportar/backup). Plano e checklist: [tasks/plan.md](tasks/plan.md), [tasks/todo.md](tasks/todo.md). Atualize esta linha ao
+Etapas 1–4 concluídas (scaffold; schema/validate; `graph/`; storage + store + sidebar +
+importar/exportar/backup). Próxima etapa = **etapa 5 da seção 14** (canvas React Flow: nós,
+grupos, arestas, expandir/colapsar, ELK em worker, arrasto, reset). Plano e checklist: [tasks/plan.md](tasks/plan.md), [tasks/todo.md](tasks/todo.md). Atualize esta linha ao
 concluir cada etapa.
 
 ## Stack (SPEC §2)
@@ -79,4 +79,7 @@ entrada). Componentes só renderizam e despacham ações. Todo localStorage via 
 - Posições salvas são relativas ao pai.
 - Repositório git em `main`; um commit por etapa (fim de cada fase do `tasks/plan.md`).
 - Aviso 1 da §4.2 (passos de fluxo) é sensível a ramificação — ver `DECISIONS.md`.
+- Dev server: `.claude/launch.json` fixa a porta 5173 (`--strictPort`); o preview em 4173.
+- Testes de componente: injete um store com `createAppStore({ storage: testStorage(), ... })`
+  (`src/test/storage.ts`); o user-event instala seu próprio stub de clipboard.
 - Não usar `python3` no Bash (é o stub da Microsoft Store e trava); use `node`.

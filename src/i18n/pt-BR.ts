@@ -2,10 +2,123 @@
 
 const q = (value: string): string => `"${value}"`;
 
+const nodeCount = (n: number): string => (n === 1 ? '1 nó' : `${n} nós`);
+
+const dateTimeFormat = new Intl.DateTimeFormat('pt-BR', {
+  dateStyle: 'short',
+  timeStyle: 'short',
+});
+
+/** Formats an ISO timestamp for display; empty/invalid input yields an empty string. */
+export function formatDateTime(iso: string): string {
+  const date = new Date(iso);
+  return iso && !Number.isNaN(date.getTime()) ? dateTimeFormat.format(date) : '';
+}
+
 export const t = {
   app: {
     name: 'sys-viz',
     tagline: 'Visualizador de arquiteturas de sistemas',
+  },
+  common: {
+    cancel: 'Cancelar',
+    close: 'Fechar',
+    save: 'Salvar',
+    confirm: 'Confirmar',
+    dismiss: 'Dispensar',
+  },
+  topbar: {
+    toggleSidebar: 'Mostrar/ocultar lista de sistemas',
+    systemMenu: 'Trocar de sistema',
+    noSystem: 'Nenhum sistema aberto',
+  },
+  systems: {
+    title: 'Sistemas',
+    copySuffix: ' (cópia)',
+    nodeCount,
+    summary: (nodes: number, when: string) =>
+      when ? `${nodeCount(nodes)} · alterado em ${when}` : nodeCount(nodes),
+    open: (name: string) => `Abrir ${name}`,
+    rename: 'Renomear',
+    duplicate: 'Duplicar',
+    exportJson: 'Exportar JSON',
+    remove: 'Excluir',
+    actionsFor: (name: string) => `Ações para ${name}`,
+    renameTitle: 'Renomear sistema',
+    nameLabel: 'Nome',
+    nameRequired: 'O nome não pode ser vazio.',
+    removeTitle: 'Excluir sistema',
+    removeConfirm: (name: string) =>
+      `Excluir o sistema ${q(name)}? Esta ação não pode ser desfeita.`,
+    empty: 'Nenhum sistema salvo.',
+    loadExample: 'Carregar exemplo',
+    importButton: 'Importar',
+    exportBackup: 'Exportar backup',
+  },
+  storage: {
+    corrupted: (id: string) => `Sistema ${id} está corrompido`,
+    downloadRaw: 'Baixar conteúdo bruto',
+    removeCorrupted: 'Remover',
+    quota:
+      'Não há espaço no armazenamento do navegador. Exporte um backup e exclua sistemas para liberar espaço. A última alteração não foi salva.',
+    writeFailed: (detail: string) => `Não foi possível salvar: ${detail}`,
+    unavailable:
+      'O armazenamento do navegador está indisponível; as alterações não serão mantidas após fechar a página.',
+    openFailed: (id: string) => `Não foi possível abrir o sistema ${q(id)}.`,
+  },
+  importer: {
+    title: 'Importar',
+    fileLabel: 'Arquivo .json',
+    pasteLabel: 'Ou cole o JSON (pode vir com cercas ```json)',
+    submit: 'Importar',
+    readFailed: 'Não foi possível ler o arquivo.',
+    back: 'Voltar',
+    errorsTitle: (n: number) => (n === 1 ? '1 erro encontrado' : `${n} erros encontrados`),
+    nothingImported: 'Nada foi importado.',
+    copyErrors: 'Copiar erros para a IA',
+    copied: 'Copiado!',
+    copyFailed: 'Não foi possível copiar.',
+    rootPath: '(documento)',
+    aiErrorsHeader:
+      'O JSON que você gerou para o sys-viz tem os erros abaixo. Corrija-os e devolva o JSON COMPLETO, mantendo todos os ids existentes.',
+    conflictTitle: 'Sistema já existe',
+    conflictMessage: (id: string, name: string) =>
+      `Já existe um sistema com o id ${q(id)} (${name}).`,
+    replace: 'Substituir',
+    importAsCopy: 'Importar como cópia',
+    warningsTitle: (n: number) => (n === 1 ? 'Importado com 1 aviso' : `Importado com ${n} avisos`),
+    imported: (name: string) => `${q(name)} importado.`,
+    backupInvalidTitle: (n: number) =>
+      n === 1 ? '1 sistema do backup tem erros' : `${n} sistemas do backup têm erros`,
+    backupInvalidItem: (position: number, id: string | undefined) =>
+      id ? `Sistema ${position} (${q(id)})` : `Sistema ${position}`,
+    importValidOnly: (n: number) =>
+      n === 1 ? 'Importar o sistema válido' : `Importar os ${n} sistemas válidos`,
+    backupNoneValid: 'Nenhum sistema válido no backup.',
+    backupConflictTitle: 'Sistemas já existentes',
+    backupConflictMessage: (ids: readonly string[]) =>
+      `Estes sistemas já existem: ${ids.map(q).join(', ')}.`,
+    replaceAll: 'Substituir todos',
+    skipExisting: 'Pular existentes',
+    importAsCopies: 'Importar como cópias',
+    backupImported: (n: number) =>
+      n === 1 ? '1 sistema importado do backup.' : `${n} sistemas importados do backup.`,
+  },
+  backup: {
+    newerVersion: (version: number) =>
+      `Este backup foi gerado por uma versão mais nova do sys-viz (sysvizBackup ${version}).`,
+    invalidVersion: 'Backup inválido: "sysvizBackup" deve ser 1.',
+    missingSystems: 'Backup inválido: "systems" deve ser uma lista.',
+    duplicateSystemId: (id: string) =>
+      `O id de sistema ${q(id)} aparece mais de uma vez no backup.`,
+  },
+  canvas: {
+    placeholder: (name: string, nodes: number) => `${name} — ${nodeCount(nodes)} visíveis`,
+    pending: 'O diagrama será exibido aqui.',
+  },
+  errorBoundary: {
+    title: 'Algo deu errado ao exibir este sistema.',
+    back: 'Voltar à lista de sistemas',
   },
   validation: {
     // errors (SPEC §4.2)

@@ -55,6 +55,30 @@ body,
   height: 100%;
 }
 
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-text hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply border-accent bg-accent text-accent-contrast hover:bg-accent hover:opacity-90;
+  }
+  .btn-danger {
+    @apply border-danger bg-danger text-white hover:bg-danger hover:opacity-90;
+  }
+  .icon-button {
+    @apply inline-flex size-8 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-surface-muted hover:text-text disabled:opacity-50;
+  }
+  .field {
+    @apply w-full rounded-md border border-border bg-surface px-2 py-1.5 text-sm text-text;
+  }
+}
+
+/* Visible focus for keyboard users (SPEC §11.5) */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
 body {
   margin: 0;
   background-color: var(--color-bg);
