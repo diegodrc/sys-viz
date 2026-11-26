@@ -4,12 +4,21 @@ import { t } from '../../i18n/pt-BR';
 import { copyText } from '../../platform/clipboard';
 import { buildCreatePrompt } from '../../prompts/createPrompt';
 import { buildEvolvePrompt } from '../../prompts/evolvePrompt';
+import { buildReposPrompt } from '../../prompts/reposPrompt';
 import { useApp } from '../../store/context';
 import { Dialog } from '../common/Dialog';
 
-type Tab = 'create' | 'evolve';
+type Tab = 'create' | 'repos' | 'evolve';
 
-/** "Gerar com IA": create/evolve prompts with copy and a shortcut to import (SPEC §9.1). */
+const TABS: readonly Tab[] = ['create', 'repos', 'evolve'];
+
+const TAB_LABELS: Readonly<Record<Tab, string>> = {
+  create: t.ai.tabCreate,
+  repos: t.ai.tabRepos,
+  evolve: t.ai.tabEvolve,
+};
+
+/** "Gerar com IA": create/repos/evolve prompts with copy and a shortcut to import (SPEC §9.1). */
 export function AiPromptDialog() {
   const open = useApp((s) => s.dialog === 'ai');
   const doc = useApp((s) => s.current?.doc);
@@ -22,7 +31,9 @@ export function AiPromptDialog() {
   const activeTab: Tab = tab === 'evolve' && !doc ? 'create' : tab;
   const prompt = useMemo(() => {
     if (!open) return '';
-    return activeTab === 'evolve' && doc ? buildEvolvePrompt(doc) : buildCreatePrompt();
+    if (activeTab === 'evolve' && doc) return buildEvolvePrompt(doc);
+    if (activeTab === 'repos') return buildReposPrompt();
+    return buildCreatePrompt();
   }, [open, activeTab, doc]);
 
   if (!open) return null;
@@ -64,7 +75,7 @@ export function AiPromptDialog() {
         aria-label={t.ai.title}
         className="mb-3 flex gap-1 border-b border-border"
       >
-        {(['create', 'evolve'] as const).map((id) => (
+        {TABS.map((id) => (
           <button
             key={id}
             type="button"
@@ -76,7 +87,7 @@ export function AiPromptDialog() {
             className={`-mb-px border-b-2 px-3 py-1.5 text-sm disabled:opacity-50 ${activeTab === id ? 'border-accent font-semibold text-accent' : 'border-transparent text-text-muted'}`}
             onClick={() => choose(id)}
           >
-            {id === 'create' ? t.ai.tabCreate : t.ai.tabEvolve}
+            {TAB_LABELS[id]}
           </button>
         ))}
       </div>
@@ -91,7 +102,9 @@ export function AiPromptDialog() {
         value={prompt}
         onFocus={(event) => event.target.select()}
       />
-      <p className="mt-2 text-sm text-text-muted">{t.ai.instructions}</p>
+      <p className="mt-2 text-sm text-text-muted">
+        {activeTab === 'repos' ? t.ai.instructionsRepos : t.ai.instructions}
+      </p>
       {status && (
         <p role="status" className="mt-1 text-sm">
           {status}

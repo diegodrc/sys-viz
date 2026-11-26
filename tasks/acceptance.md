@@ -27,6 +27,7 @@ eventos DOM quando cliques reais não chegavam à aba.
 | A19 | ⚠️ parcial | Build PWA: service worker ativo, precache de todos os arquivos (inclui o bundle de 2,1 MB). Com o servidor **parado**, recarregar a página funcionou inteiramente do cache (9 nós / 9 arestas, layout pelo worker) — equivale ao caso Firefox. **Falta (manual):** instalar como PWA no Chrome/Edge e abrir com a rede desligada. |
 | A20 | ✅         | Teste: `appStore.test.ts` (backup → "Substituir todos"). Navegador: backup de 2 sistemas, limpar, recarregar (exemplo volta), importar e substituir → conteúdo do backup restaurado.                                                                                                                                              |
 | A21 | ✅         | `npm test` (210 testes), `npm run typecheck`, `npm run lint` — todos verdes.                                                                                                                                                                                                                                                      |
+| A22 | ✅         | Teste: `prompts/prompts.test.ts` (texto literal = SPEC §9.4 byte a byte, placeholders), `AiPromptDialog.test.tsx` (aba sem sistema aberto, instruções próprias, "Copiar" copia tudo). Navegador: três abas sem overflow, prompt de 22 mil caracteres.                                                                             |
 
 ## Requisitos não funcionais (SPEC §11)
 

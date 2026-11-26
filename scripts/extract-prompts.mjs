@@ -1,4 +1,4 @@
-// Copies the literal AI prompts from SPEC.md §9.2 and §9.3 into src/prompts/*.txt.
+// Copies the literal AI prompts from SPEC.md §9.2, §9.3 and §9.4 into src/prompts/*.txt.
 // The text must not be edited by hand (SPEC §17); re-run this script if the spec changes.
 import { readFileSync, writeFileSync } from 'node:fs';
 
@@ -19,5 +19,9 @@ writeFileSync(
 writeFileSync(
   new URL('../src/prompts/evolve.txt', import.meta.url),
   extractPrompt(spec, '### 9.3 Prompt de evolução'),
+);
+writeFileSync(
+  new URL('../src/prompts/repos.txt', import.meta.url),
+  extractPrompt(spec, '### 9.4 Prompt de mapeamento a partir de repositórios'),
 );
 console.log('prompts extracted');

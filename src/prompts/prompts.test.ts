@@ -6,6 +6,7 @@ import { exampleDoc } from '../test/fixtures';
 import { buildCreatePrompt, CREATE_PROMPT_TEMPLATE } from './createPrompt';
 import { buildEvolvePrompt, EVOLVE_PROMPT_TEMPLATE } from './evolvePrompt';
 import { fillTemplate } from './fill';
+import { buildReposPrompt, REPOS_PROMPT_TEMPLATE } from './reposPrompt';
 
 const spec = specRaw.replace(/\r\n/g, '\n');
 const FENCE = '````text\n';
@@ -33,9 +34,29 @@ describe('prompt templates are the literal SPEC §9 text', () => {
       ),
     ).toBe(true);
   });
+
+  it('repos prompt (§9.4) is byte-equal to the spec', () => {
+    expect(REPOS_PROMPT_TEMPLATE).toBe(
+      extractPrompt(spec, '### 9.4 Prompt de mapeamento a partir de repositórios'),
+    );
+    expect(REPOS_PROMPT_TEMPLATE.startsWith('Você é um arquiteto de software')).toBe(true);
+    expect(REPOS_PROMPT_TEMPLATE).toContain('metadata.source');
+  });
+
+  it('the three templates are distinct', () => {
+    const all = new Set([CREATE_PROMPT_TEMPLATE, EVOLVE_PROMPT_TEMPLATE, REPOS_PROMPT_TEMPLATE]);
+    expect(all.size).toBe(3);
+  });
 });
 
 describe('placeholders (SPEC §9.1)', () => {
+  it('A22: repos prompt embeds the JSON Schema and the example file', () => {
+    const prompt = buildReposPrompt();
+    expect(prompt).not.toContain('{{');
+    expect(prompt).toContain(systemDocJsonSchemaText());
+    expect(prompt).toContain(exampleRaw.trim());
+  });
+
   it('create prompt embeds the JSON Schema and the example file', () => {
     const prompt = buildCreatePrompt();
     expect(prompt).not.toContain('{{');

@@ -469,12 +469,13 @@ Princípios: toda lógica de grafo em funções **puras** e testáveis em `graph
 
 ### 9.1 Tela "Gerar com IA"
 
-Diálogo com duas abas:
+Diálogo com três abas:
 
 1. **Criar novo sistema** — mostra o prompt de criação (9.2) em área somente leitura + botão **Copiar prompt**.
-2. **Evoluir sistema atual** — habilitada se houver sistema aberto; mostra o prompt de evolução (9.3) com o JSON atual embutido + **Copiar prompt**.
+2. **Mapear a partir de repositórios** — mostra o prompt de mapeamento por código (9.4) + **Copiar prompt**. Para agentes com acesso aos repositórios (Claude Code, Copilot, Cursor…).
+3. **Evoluir sistema atual** — habilitada se houver sistema aberto; mostra o prompt de evolução (9.3) com o JSON atual embutido + **Copiar prompt**.
 
-Abaixo, instruções curtas: "1. Copie o prompt. 2. Cole em um agente de IA (ChatGPT, Claude, Copilot…). 3. Responda às perguntas. 4. Cole o JSON final em Importar." e botão **Importar JSON**.
+Abaixo, instruções curtas: "1. Copie o prompt. 2. Cole em um agente de IA (ChatGPT, Claude, Copilot…). 3. Responda às perguntas. 4. Cole o JSON final em Importar." e botão **Importar JSON**. Na aba de repositórios, as instruções são: "1. Abra um agente de IA com acesso aos repositórios do fluxo (Claude Code, Copilot, Cursor…). 2. Cole o prompt e descreva o fluxo passo a passo. 3. Confirme o inventário e responda às perguntas. 4. Cole o JSON final em Importar."
 
 Os placeholders são substituídos em runtime:
 
@@ -563,6 +564,78 @@ Se o usuário colar uma lista de erros de validação do sys-viz, corrija e devo
 ```
 
 Comece com o resumo do documento atual e a primeira pergunta.
+````
+
+### 9.4 Prompt de mapeamento a partir de repositórios (texto literal)
+
+Usa os placeholders `{{JSON_SCHEMA}}` e `{{EXAMPLE_JSON}}`, como o prompt de criação.
+
+````text
+Você é um arquiteto de software ajudando a mapear um sistema para a ferramenta de visualização "sys-viz". Você tem acesso aos repositórios envolvidos no fluxo. Seu objetivo é descobrir no código e nas configurações os componentes e as conexões do sistema, confirmar tudo com o usuário e, ao final, gerar UM documento JSON válido segundo o JSON Schema abaixo.
+
+## Etapa 1 — Entender o pedido
+- Fale no idioma do usuário.
+- O usuário vai descrever o fluxo passo a passo. Se ele ainda não descreveu, peça essa descrição e a lista de repositórios disponíveis antes de investigar.
+- Pergunte qual ambiente usar como referência (ex.: produção, homologação) quando as configurações variarem por ambiente. Se o usuário não souber, use produção e registre isso.
+
+## Etapa 2 — Investigar os repositórios
+Para cada etapa do fluxo descrito, procure evidências no código e nas configurações. Leia, não execute nada e não altere nenhum arquivo.
+
+O que identificar:
+- Aplicações: nome de cada Deployment, StatefulSet ou CronJob do Kubernetes (este é o nome do nó), namespace, cluster se aparecer, imagem e tecnologia (linguagem, framework, versão). Um repositório pode ter mais de uma aplicação (ex.: API e worker), e cada uma vira um nó.
+- Entradas: Services, Ingress, rotas expostas, controllers e endpoints de cada API.
+- Chamadas HTTP de saída: base URLs, clientes HTTP (HttpClient, Refit, Feign, axios...), endpoint e método chamados, e por qual gateway passam (Apigee, CA Gateway, ingress).
+- Bancos de dados: servidor/instância e nome da base (sem credenciais) e as tabelas que cada aplicação lê ou escreve, com a operação (SELECT, INSERT, UPDATE, DELETE, procedure).
+- Mensageria: broker, virtual host, exchanges (com tipo: direct, topic, fanout), filas, bindings, routing keys, quem publica e quem consome. Inclua filas de erro (DLQ) e retentativas se estiverem configuradas.
+- Outros: caches, storages, jobs agendados e integrações externas.
+
+Onde procurar (os nomes variam; use busca no repositório):
+- Kubernetes: manifests YAML (Deployment, Service, Ingress, ConfigMap, CronJob), Helm (Chart.yaml, values*.yaml, templates/), Kustomize, pipelines de CI/CD (azure-pipelines.yml, .gitlab-ci.yml, .github/workflows, Jenkinsfile).
+- Configuração: appsettings*.json, application*.yml/.properties, .env.example, config/*.json, docker-compose*.yml, variáveis de ambiente nos manifests e ConfigMaps.
+- Banco: connection strings (extraia só servidor e base), DbContext/entidades/migrations (Entity Framework), consultas SQL e Dapper, repositórios de dados, scripts .sql e stored procedures.
+- Mensageria: declarações e uso no código (ExchangeDeclare, QueueDeclare, QueueBind, BasicPublish, BasicConsume; configuração de MassTransit, EasyNetQ, Spring AMQP), definitions.json do RabbitMQ, e configs com nomes de exchanges, filas, routing keys e vhost.
+- Gateways: bundles de proxy do Apigee (apiproxy/, proxies/*.xml, targets/*.xml), políticas e configurações do CA Gateway, arquivos de rotas.
+
+Segurança: NUNCA copie senhas, tokens, chaves, connection strings completas ou outros segredos para as mensagens ou para o JSON. Registre apenas nomes (servidores, bases, tabelas, filas, endpoints).
+
+## Etapa 3 — Apresentar o inventário e tirar dúvidas
+Antes de gerar qualquer JSON, apresente um inventário organizado por etapa do fluxo, com:
+- Cada componente e cada conexão encontrados, com a evidência (repositório/caminho:linha) entre parênteses.
+- Marcação clara do que foi: CONFIRMADO no código/config, INFERIDO (ex.: pelo nome de uma variável) ou NÃO ENCONTRADO.
+- Perguntas objetivas sobre as lacunas: relações que você não conseguiu ligar (ex.: "a URL da variável X aponta para qual aplicação?"), etapas do fluxo do usuário sem evidência nos repositórios, e componentes encontrados que não aparecem no fluxo descrito (pergunte se entram).
+Faça no máximo 5 perguntas por mensagem e espere as respostas. Repita até não haver lacunas que mudem o resultado. Peça ao usuário que confirme o inventário final antes de gerar o JSON.
+
+## Regras de modelagem
+- Hierarquia: use "children" para agrupar por responsabilidade lógica (sistema → aplicação → componente), NUNCA por infraestrutura: Kubernetes, cluster e namespace vão no campo "hosting" ({"platform": "kubernetes", "cluster": "...", "namespace": "..."}), não viram nós. Guarde o nome do Deployment em metadata.deployment quando for diferente do nome exibido.
+- Gateways, proxies, CDNs, ingress, brokers, exchanges, filas e bancos SÃO nós, pois estão no caminho da requisição.
+- Banco de dados: um nó "type": "database" por base, com um nó filho "type": "table" para cada tabela usada no fluxo. As arestas de leitura e escrita apontam para a TABELA, não para a base, para que ao expandir a base seja possível ver a interação com cada tabela. Uma tabela usada como fila é "type": "queue" com "technology": "SQL Server (tabela)" (ou o banco correspondente).
+- RabbitMQ: um nó "type": "broker". Se houver mais de um virtual host, crie um nó filho do broker por vhost ("type": "other", "technology": "RabbitMQ vhost") contendo suas exchanges e filas. Sempre registre metadata.vhost nas exchanges e filas, metadata.exchangeType nas exchanges e metadata.routingKey nas arestas de publicação e de binding.
+- Direção das arestas = caminho do dado no fluxo: chamador → chamado; aplicação → tabela (escrita) e tabela → aplicação (leitura); produtor → exchange; exchange → fila (binding); fila → consumidor (mesmo em polling; registre "initiator" em metadata).
+- Endpoints: uma aresta por endpoint relevante, com metadata.endpoint e metadata.method. Operações de banco: metadata.operation (ex.: "SELECT", "INSERT", "UPDATE", "EXEC sp_nome").
+- Rastreabilidade: em todo nó e aresta que vier do código, registre a evidência em metadata.source no formato "repositorio/caminho:linha" (várias separadas por "; ").
+- Confidence: "confirmed" para o que tem evidência no código/config ou foi confirmado pelo usuário; "assumed" para o que foi inferido ou é uma camada típica não comprovada (ex.: ingress na frente de uma aplicação em Kubernetes sem manifest de Ingress encontrado). Nunca invente nomes de tabelas, filas ou endpoints.
+- Arestas podem ligar nós de qualquer nível, mas nunca um nó a um ancestral ou descendente dele.
+- ids: minúsculos, kebab-case, descritivos e únicos no documento (ex.: "api-pedidos", "tb-fila-pedidos", "e-api-pedidos-tb-fila"). Valores de "metadata" são sempre strings.
+- Use "label" curto nas arestas (até 40 caracteres) e "description" para detalhes.
+- Crie um fluxo (em "flows") para o fluxo descrito pelo usuário, com os passos na ordem; ramificações entram em sequência (termine um ramo e depois o outro). Use "note" nos passos para explicar o que acontece.
+- Não inclua o campo "layout".
+
+## Saída final
+Depois que o usuário confirmar o inventário, gere o documento completo. Se você puder criar arquivos, salve-o como sysviz-<id-do-sistema>.json na raiz do workspace e informe o caminho; caso contrário, responda com UM ÚNICO bloco de código ```json, sem comentários dentro do JSON. Antes de entregar, verifique: todos os ids são únicos, toda aresta aponta para nós existentes, todo passo de fluxo aponta para arestas existentes, "schemaVersion" é 1 e não há nenhum segredo no conteúdo.
+
+Se o usuário colar uma lista de erros de validação do sys-viz, corrija e devolva o JSON completo novamente, mantendo os ids.
+
+## JSON Schema
+```json
+{{JSON_SCHEMA}}
+```
+
+## Exemplo de documento válido (apenas referência de formato; não copie o conteúdo)
+```json
+{{EXAMPLE_JSON}}
+```
+
+Comece se apresentando em uma frase. Se o usuário já descreveu o fluxo e os repositórios, confirme em poucas linhas o que entendeu e comece a investigação; senão, peça essas informações.
 ````
 
 ---
@@ -717,6 +790,7 @@ Unitários (`src/**/*.test.ts`):
 - `positions`: merge na substituição preserva posições de ids remanescentes, descarta ids removidos, posições do JSON importado prevalecem.
 - `importSystem`: conflito → substituir / cópia (geração de id `-copia`, `-copia-2`).
 - `jsonSchema`: `z.toJSONSchema` gera schema; o exemplo valida contra o Zod.
+- `prompts`: os três templates (§9.2, §9.3, §9.4) são idênticos ao texto da spec; placeholders substituídos.
 - `storage`: entrada corrompida não lança; `QuotaExceededError` é tratado.
 
 Componentes (mínimo): importar o exemplo e verificar contagem de nós renderizados na visão macro; abrir painel e editar `name`.
@@ -752,6 +826,7 @@ Usando o sistema de exemplo (seção 10):
 | A19 | `npm run build`, servir `dist/`, instalar como PWA no **Chrome/Edge**, desligar rede | App abre e funciona offline. (No Firefox, que tem suporte limitado à instalação de PWA, basta: recarregar a página offline após a primeira visita e o app funcionar.) |
 | A20 | Exportar backup, limpar localStorage, recarregar (o exemplo é carregado automaticamente, A1), importar backup e escolher **Substituir todos** | Todos os sistemas restaurados com o conteúdo do backup. |
 | A21 | `npm test`, `npm run typecheck`, `npm run lint` | Todos passam sem erros. |
+| A22 | Aba "Mapear a partir de repositórios" | Prompt é o texto literal da §9.4 com JSON Schema e exemplo embutidos; "Copiar" copia o texto completo; funciona sem sistema aberto. |
 
 ---
 

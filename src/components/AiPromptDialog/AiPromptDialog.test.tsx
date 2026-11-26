@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { App } from '../../App';
 import { t } from '../../i18n/pt-BR';
 import { buildCreatePrompt } from '../../prompts/createPrompt';
+import { buildReposPrompt } from '../../prompts/reposPrompt';
 import { createTestStore, showMacroView } from '../../test/store';
 
 async function setup() {
@@ -44,6 +45,22 @@ describe('Gerar com IA (SPEC §9.1)', () => {
 
     await user.click(within(dialog()).getByRole('button', { name: t.ai.copy }));
     expect(await navigator.clipboard.readText()).toBe(value);
+  });
+
+  it('A22: "Mapear a partir de repositórios" shows its prompt and instructions, even with no system open', async () => {
+    const { store, user } = await setup();
+    act(() => store.getState().closeSystem());
+    await user.click(screen.getAllByRole('button', { name: t.ai.button })[0]!);
+    await user.click(within(dialog()).getByRole('tab', { name: t.ai.tabRepos }));
+    expect(within(dialog()).getByRole('tab', { name: t.ai.tabRepos })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    const text = within(dialog()).getByRole('tabpanel');
+    expect(text).toHaveValue(buildReposPrompt());
+    expect(within(dialog()).getByText(t.ai.instructionsRepos)).toBeInTheDocument();
+    await user.click(within(dialog()).getByRole('button', { name: t.ai.copy }));
+    expect(await navigator.clipboard.readText()).toBe(buildReposPrompt());
   });
 
   it('"Importar JSON" switches to the import dialog', async () => {

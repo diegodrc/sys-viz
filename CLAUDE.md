@@ -8,7 +8,7 @@ relevantes à tarefa (mapa abaixo), não o arquivo inteiro.
 
 ## Estado atual
 
-Etapas 1–10 implementadas. Critérios A1–A21: ver [tasks/acceptance.md](tasks/acceptance.md) —
+Etapas 1–10 implementadas. Critérios A1–A22: ver [tasks/acceptance.md](tasks/acceptance.md) —
 pendentes só verificações manuais (A18 via `file://`, A19 instalação PWA) e a meta de desempenho
 (§11), não atingida no navegador embutido. Plano e checklist: [tasks/plan.md](tasks/plan.md), [tasks/todo.md](tasks/todo.md). Atualize esta linha ao
 concluir cada etapa.
