@@ -1,5 +1,6 @@
 import { MarkerType, type Edge, type Node } from '@xyflow/react';
 import type { RenderedEdge } from '../../graph/aggregate';
+import type { EdgeRoute, EdgeRoutes } from '../../graph/edgeRoute';
 import { flowHighlight, stepLocation, type FlowHighlight } from '../../graph/flowPath';
 import { FILTER_DIM_OPACITY } from '../../graph/filter';
 import type { Boxes } from '../../graph/layout';
@@ -45,6 +46,8 @@ export interface SysEdgeData extends Record<string, unknown> {
   badge: string | undefined;
   /** Opacity from flow/filter dimming (1 = not dimmed); the smaller one wins (SPEC §6.4). */
   dimOpacity: number;
+  /** ELK route, drawn while both ends stay where ELK put them. */
+  route: EdgeRoute | undefined;
 }
 
 export type SysFlowEdge = Edge<SysEdgeData, 'sysEdge'>;
@@ -164,6 +167,7 @@ export function buildFlowEdges(
   selectedId: string | undefined,
   overlay?: FlowOverlay,
   filterDimmed?: ReadonlySet<string>,
+  routes?: EdgeRoutes,
 ): SysFlowEdge[] {
   return rendered
     .filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target))
@@ -190,6 +194,7 @@ export function buildFlowEdges(
             flowState === 'dimmed' ? FLOW_DIM_OPACITY : 1,
             filterDimmed?.has(edge.id) ? FILTER_DIM_OPACITY : 1,
           ),
+          route: routes?.[edge.id],
         },
       };
     });

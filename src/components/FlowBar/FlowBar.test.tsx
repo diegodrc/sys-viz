@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { App } from '../../App';
 import { t } from '../../i18n/pt-BR';
-import { createTestStore } from '../../test/store';
+import { createTestStore, showMacroView } from '../../test/store';
 
 const FLOW = 'Processamento assíncrono';
 
@@ -11,7 +11,7 @@ async function setup() {
   const store = createTestStore();
   const user = userEvent.setup();
   render(<App store={store} />);
-  await waitFor(() => expect(document.querySelectorAll('.react-flow__node')).toHaveLength(9));
+  await showMacroView(store);
   await user.selectOptions(screen.getByRole('combobox', { name: t.flows.selector }), FLOW);
   // move focus off the <select> so ←/→ reach the step bar (SPEC §6.4)
   (document.activeElement as HTMLElement | null)?.blur(); // activeElement is the select here

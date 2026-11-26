@@ -75,6 +75,6 @@ Gate after every task: `npm test && npm run typecheck && npm run lint`.
 ## Phase 10 — Builds & acceptance
 
 - [ ] T10.1 PWA offline (A19) — offline reload from cache verified; **install on Chrome/Edge is manual**
-- [ ] T10.2 Single-file offline (A18) — self-contained, verified over HTTP; **`file://` double-click is manual**
+- [x] T10.2 Single-file offline (A18) — self-contained; `file://` double-click checked manually by the user (2026-11-25)
 - [x] T10.3 Full A1–A21 sweep + zero-network audit → [acceptance.md](acceptance.md)
 - [ ] **Checkpoint 10 (final)** — waiting on the manual checks above; §11 layout target not met in the embedded browser

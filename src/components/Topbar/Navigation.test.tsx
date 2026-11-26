@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { App } from '../../App';
 import { t } from '../../i18n/pt-BR';
 import { PREFS_KEY } from '../../storage/localStore';
-import { createTestStore } from '../../test/store';
+import { createTestStore, showMacroView } from '../../test/store';
 import { testStorage } from '../../test/storage';
 
 async function setup() {
@@ -12,7 +12,7 @@ async function setup() {
   const store = createTestStore({ storage });
   const user = userEvent.setup();
   render(<App store={store} />);
-  await waitFor(() => expect(document.querySelectorAll('.react-flow__node')).toHaveLength(9));
+  await showMacroView(store);
   return { store, storage, user };
 }
 

@@ -276,8 +276,9 @@ export function deleteSystem(
   return { ok: true, value: undefined };
 }
 
-export function loadUiState(storage: StorageLike, id: string): UiState {
-  return readJson(storage, uiKey(id), UiStateSchema) ?? { expandedIds: [] };
+/** Saved UI state of a system, or undefined when none was saved (or it is unreadable). */
+export function loadUiState(storage: StorageLike, id: string): UiState | undefined {
+  return readJson(storage, uiKey(id), UiStateSchema) ?? undefined;
 }
 
 export function saveUiState(storage: StorageLike, id: string, ui: UiState): StorageResult<void> {

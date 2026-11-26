@@ -1,16 +1,16 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { App } from '../../App';
 import { t } from '../../i18n/pt-BR';
 import { buildCreatePrompt } from '../../prompts/createPrompt';
-import { createTestStore } from '../../test/store';
+import { createTestStore, showMacroView } from '../../test/store';
 
 async function setup() {
   const store = createTestStore();
   const user = userEvent.setup();
   render(<App store={store} />);
-  await waitFor(() => expect(document.querySelectorAll('.react-flow__node')).toHaveLength(9));
+  await showMacroView(store);
   return { store, user };
 }
 

@@ -1,6 +1,40 @@
-import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath, type EdgeProps } from '@xyflow/react';
+import {
+  BaseEdge,
+  EdgeLabelRenderer,
+  getSmoothStepPath,
+  useInternalNode,
+  type EdgeProps,
+  type InternalNode,
+} from '@xyflow/react';
 import { memo } from 'react';
+import { midpoint, roundedPath, routeStillValid, type EdgeRoute } from '../../graph/edgeRoute';
+import type { Box } from '../../graph/positions';
 import type { SysFlowEdge } from '../Canvas/flowModel';
+
+/** Absolute box of a node as React Flow currently has it (live during a drag). */
+function liveBox(node: InternalNode | undefined): Box | undefined {
+  if (!node) return undefined;
+  const { x, y } = node.internals.positionAbsolute;
+  return {
+    x,
+    y,
+    width: node.width ?? node.measured.width ?? 0,
+    height: node.height ?? node.measured.height ?? 0,
+  };
+}
+
+/** ELK route as an SVG path, or undefined when an end moved (dragged or saved position). */
+function routedPath(
+  route: EdgeRoute | undefined,
+  source: InternalNode | undefined,
+  target: InternalNode | undefined,
+): [string, number, number] | undefined {
+  const s = liveBox(source);
+  const t = liveBox(target);
+  if (!route || !s || !t || !routeStillValid(route, s, t)) return undefined;
+  const mid = midpoint(route.points);
+  return [roundedPath(route.points), mid.x, mid.y];
+}
 
 /**
  * Rendered edge (SPEC §5.3): solid = sync, dashed = async, 50% = assumed, label on the path.
@@ -9,6 +43,8 @@ import type { SysFlowEdge } from '../Canvas/flowModel';
  */
 function SysEdgeViewInner({
   id,
+  source,
+  target,
   sourceX,
   sourceY,
   targetX,
@@ -19,15 +55,20 @@ function SysEdgeViewInner({
   selected,
   data,
 }: EdgeProps<SysFlowEdge>) {
-  const [path, labelX, labelY] = getSmoothStepPath({
-    sourceX,
-    sourceY,
-    sourcePosition,
-    targetX,
-    targetY,
-    targetPosition,
-    borderRadius: 8,
-  });
+  const sourceNode = useInternalNode(source);
+  const targetNode = useInternalNode(target);
+  // ELK's orthogonal route avoids other edges (DECISIONS 2026-11-25); smoothstep is the fallback
+  const [path, labelX, labelY] =
+    routedPath(data?.route, sourceNode, targetNode) ??
+    getSmoothStepPath({
+      sourceX,
+      sourceY,
+      sourcePosition,
+      targetX,
+      targetY,
+      targetPosition,
+      borderRadius: 8,
+    });
   const rendered = data?.rendered;
   const flowState = data?.flowState ?? 'none';
   const onPath = flowState === 'path' || flowState === 'current';

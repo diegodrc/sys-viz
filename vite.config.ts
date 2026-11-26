@@ -56,6 +56,9 @@ export default defineConfig(({ mode }) => {
       setupFiles: ['./src/test/setup.ts'],
       include: ['src/**/*.test.{ts,tsx}'],
       css: false,
+      // component tests lay out the expanded example, then the macro view (two ELK runs; the first
+      // also loads the ELK bundle) — 5 s was flaky when test files run in parallel
+      testTimeout: 15_000,
     },
   };
 });

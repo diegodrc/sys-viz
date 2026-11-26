@@ -9,10 +9,11 @@ import {
   type Boxes,
 } from '../graph/layout';
 import { EMPTY_FILTERS, type NodeFilters, type PlatformFilterValue } from '../graph/filter';
+import { readElkRoutes, type EdgeRoutes } from '../graph/edgeRoute';
 import { expandPath } from '../graph/flowPath';
 import { positionsOf, resetPositions, setPositions } from '../graph/positions';
 import { buildTree, type TreeIndex } from '../graph/tree';
-import { isVisible, pruneExpanded, visibleAncestor } from '../graph/visibility';
+import { expandAll, isVisible, pruneExpanded, visibleAncestor } from '../graph/visibility';
 import { t } from '../i18n/pt-BR';
 import type { LayoutEngine } from '../layout/engine';
 import {
@@ -76,6 +77,8 @@ export interface CanvasLayout {
   docId: string;
   /** Node boxes relative to their parent, after saved positions were applied. */
   boxes: Boxes;
+  /** ELK edge routes (absolute); an edge whose ends moved is drawn without its route. */
+  routes: EdgeRoutes;
   /** Incremented on every ELK result (the canvas fits the view when it changes). */
   revision: number;
 }
@@ -273,7 +276,12 @@ export function createAppStore(deps: AppDeps): AppStore {
             expanded,
           );
           set((state) => ({
-            layout: { docId: doc.id, boxes, revision: (state.layout?.revision ?? 0) + 1 },
+            layout: {
+              docId: doc.id,
+              boxes,
+              routes: readElkRoutes(result),
+              revision: (state.layout?.revision ?? 0) + 1,
+            },
             layoutPending: false,
           }));
         },
@@ -324,15 +332,21 @@ export function createAppStore(deps: AppDeps): AppStore {
       requestLayout();
     };
 
-    const showDoc = (doc: SystemDoc, expandedIds: Iterable<string>): void => {
-      const expanded = pruneExpanded(buildTree(doc), expandedIds);
+    /**
+     * Opens a document. Without saved expansion it opens fully expanded (DECISIONS 2026-11-25,
+     * replaces the SPEC §5.6 macro default); saved expansion is restored as before.
+     */
+    const showDoc = (doc: SystemDoc, expandedIds: Iterable<string> | undefined): void => {
+      const tree = buildTree(doc);
+      const expanded =
+        expandedIds === undefined ? expandAll(tree) : pruneExpanded(tree, expandedIds);
       set({ current: { doc, expanded }, selection: undefined, activeFlow: undefined });
       setPrefs({ lastOpenedId: doc.id });
       requestLayout();
     };
 
     /** Saves a newly imported/created doc and opens it. */
-    const addAndOpen = (doc: SystemDoc, expandedIds: Iterable<string> = []): boolean => {
+    const addAndOpen = (doc: SystemDoc, expandedIds?: Iterable<string>): boolean => {
       if (!persistDoc(doc, true)) return false;
       showDoc(doc, expandedIds);
       return true;
@@ -451,7 +465,7 @@ export function createAppStore(deps: AppDeps): AppStore {
         const systems = get().systems.map((e) => (e.id === id ? { ...e, openedAt: now } : e));
         saveIndex(storage, { version: 1, systems });
         set({ systems: sortByOpened(systems) });
-        showDoc(loaded.doc, loadUiState(storage, id).expandedIds);
+        showDoc(loaded.doc, loadUiState(storage, id)?.expandedIds);
       },
 
       renameSystem(id, name) {
@@ -580,7 +594,7 @@ export function createAppStore(deps: AppDeps): AppStore {
         const previous = loadSystem(storage, doc.id);
         const replaced = asReplacement(previous.ok ? previous.doc : undefined, doc);
         // SPEC §6.2: keep expansion ids that still exist
-        const expandedIds = loadUiState(storage, doc.id).expandedIds;
+        const expandedIds = loadUiState(storage, doc.id)?.expandedIds;
         if (addAndOpen(replaced, expandedIds)) {
           set({ importer: undefined, notice: warningsNotice(warnings) });
         }

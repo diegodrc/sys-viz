@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { App } from './App';
@@ -19,7 +19,7 @@ function renderApp(storage = testStorage()) {
 
 describe('App shell', () => {
   it('A1: first run shows the example opened and listed', async () => {
-    renderApp();
+    const { store } = renderApp();
     const sidebar = screen.getByRole('complementary', { name: t.systems.title });
     expect(
       within(sidebar).getByRole('button', { name: t.systems.open(EXAMPLE_NAME) }),
@@ -27,7 +27,13 @@ describe('App shell', () => {
     expect(screen.getByRole('button', { name: t.topbar.systemMenu })).toHaveTextContent(
       EXAMPLE_NAME,
     );
-    // A2 (component): the macro view renders 9 nodes and 9 edges in React Flow
+    // opens fully expanded without saved state (DECISIONS 2026-11-25): A4 counts, 27 / 21
+    await waitFor(() => {
+      expect(document.querySelectorAll('.react-flow__node')).toHaveLength(27);
+    });
+    expect(document.querySelectorAll('.react-flow__edge')).toHaveLength(21);
+    // A2 (component): "Colapsar tudo" gives the macro view, 9 nodes and 9 edges
+    act(() => store.getState().setExpanded([]));
     await waitFor(() => {
       expect(document.querySelectorAll('.react-flow__node')).toHaveLength(9);
     });

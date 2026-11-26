@@ -10,15 +10,29 @@ export const NODE_WIDTH = 220;
 export const NODE_HEIGHT = 64;
 export const ROOT_ID = '__root__';
 
+// Spacing shared by the root and every group. The edge spacings and the routes in root
+// coordinates are not in SPEC §5.5: ELK routes are drawn so edges avoid overlapping
+// (DECISIONS 2026-11-25).
+const SPACING_OPTIONS: LayoutOptions = {
+  'elk.layered.spacing.nodeNodeBetweenLayers': '80',
+  'elk.spacing.nodeNode': '40',
+  'elk.spacing.edgeEdge': '16',
+  'elk.spacing.edgeNode': '24',
+  'elk.layered.spacing.edgeEdgeBetweenLayers': '16',
+  'elk.layered.spacing.edgeNodeBetweenLayers': '24',
+};
+
 export const ROOT_LAYOUT_OPTIONS: LayoutOptions = {
   'elk.algorithm': 'layered',
   'elk.direction': 'RIGHT',
   'elk.hierarchyHandling': 'INCLUDE_CHILDREN',
-  'elk.layered.spacing.nodeNodeBetweenLayers': '80',
-  'elk.spacing.nodeNode': '40',
+  'elk.edgeRouting': 'ORTHOGONAL',
+  'elk.json.edgeCoords': 'ROOT',
+  ...SPACING_OPTIONS,
 };
 
 const GROUP_LAYOUT_OPTIONS: LayoutOptions = {
+  ...SPACING_OPTIONS,
   'elk.padding': `[top=${GROUP_PADDING.top},left=${GROUP_PADDING.left},bottom=${GROUP_PADDING.bottom},right=${GROUP_PADDING.right}]`,
 };
 
@@ -69,7 +83,7 @@ export function buildElkGraph(
   return root;
 }
 
-/** Positions (relative to the parent) and sizes from an ELK result; edge routes are ignored. */
+/** Positions (relative to the parent) and sizes from an ELK result (routes: edgeRoute.ts). */
 export function readElkLayout(result: ElkNode): Boxes {
   const boxes: Boxes = {};
   const stack: ElkNode[] = [...(result.children ?? [])];

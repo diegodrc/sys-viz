@@ -53,6 +53,7 @@ function CanvasInner() {
   );
   const edgesById = useMemo(() => new Map((doc?.edges ?? []).map((e) => [e.id, e])), [doc]);
   const boxes = layout && doc && layout.docId === doc.id ? layout.boxes : undefined;
+  const routes = layout && doc && layout.docId === doc.id ? layout.routes : undefined;
   const selectedNode = selection?.kind === 'node' ? selection.id : undefined;
   // an original edge selected in the panel highlights the rendered edge that contains it
   const selectedEdge = useMemo(() => {
@@ -101,8 +102,9 @@ function CanvasInner() {
       selectedEdge,
       overlay,
       filterDimmed.edges,
+      routes,
     );
-  }, [rendered, derivedNodes, edgesById, tree, selectedEdge, overlay, filterDimmed]);
+  }, [rendered, derivedNodes, edgesById, tree, selectedEdge, overlay, filterDimmed, routes]);
 
   // React Flow owns transient drag state; store-derived nodes replace it whenever they change
   // (state derived during render instead of an effect, to avoid a cascading re-render)

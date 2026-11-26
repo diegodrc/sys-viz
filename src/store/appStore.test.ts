@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
+import { buildTree } from '../graph/tree';
+import { expandAll } from '../graph/visibility';
 import { toExportJson } from '../storage/backup';
 import { INDEX_KEY, PREFS_KEY, systemKey, uiKey } from '../storage/localStore';
 import { exampleDoc } from '../test/fixtures';
@@ -15,6 +17,12 @@ function setup(storage: TestStorage = testStorage()) {
   return { store, storage, s: () => store.getState() };
 }
 
+/** The app opens fully expanded; macro-view tests (A2, A6, A7…) start from "Colapsar tudo". */
+function initMacro(s: () => ReturnType<ReturnType<typeof createTestStore>['getState']>): void {
+  s().init();
+  s().setExpanded([]);
+}
+
 function backupText(...docs: ReturnType<typeof exampleDoc>[]): string {
   return JSON.stringify({ sysvizBackup: 1, exportedAt: '2026-01-01T00:00:00.000Z', systems: docs });
 }
@@ -25,7 +33,10 @@ describe('startup', () => {
     s().init();
     expect(s().ready).toBe(true);
     expect(s().current?.doc.id).toBe('exemplo-pedidos');
-    expect(s().current?.expanded.size).toBe(0);
+    // without saved expansion the system opens fully expanded (DECISIONS 2026-11-25)
+    expect([...(s().current?.expanded ?? [])].sort()).toEqual(
+      [...expandAll(buildTree(exampleDoc()))].sort(),
+    );
     expect(s().systems.map((e) => e.id)).toEqual(['exemplo-pedidos']);
     expect(Object.keys(storage.dump()).sort()).toEqual(
       [INDEX_KEY, PREFS_KEY, systemKey('exemplo-pedidos')].sort(),
@@ -238,7 +249,7 @@ describe('backup import (SPEC §6.2 step 6, A20)', () => {
 describe('canvas state (SPEC §5.5, §5.6)', () => {
   async function laidOut() {
     const ctx = setup();
-    ctx.s().init();
+    initMacro(ctx.s);
     await vi.waitFor(
       () => {
         expect(ctx.s().layoutPending).toBe(false);
@@ -331,7 +342,7 @@ describe('canvas state (SPEC §5.5, §5.6)', () => {
 describe('edits (SPEC §6.6)', () => {
   it('updateNode persists and updates updatedAt; focusNode expands ancestors', () => {
     const { s, storage } = setup();
-    s().init();
+    initMacro(s);
     const before = s().systems[0]?.updatedAt;
     s().focusNode('fila-pedidos');
     expect([...(s().current?.expanded ?? [])].sort()).toEqual(['db-pedidos', 'sistema-pedidos']);
@@ -361,7 +372,7 @@ describe('edits (SPEC §6.6)', () => {
 describe('flows (SPEC §6.5)', () => {
   it('A6/A7: selecting a flow keeps expansion; "Expandir caminho" expands exactly the path', async () => {
     const { s } = setup();
-    s().init();
+    initMacro(s);
     s().selectFlow('fluxo-processamento');
     expect(s().activeFlow).toEqual({ id: 'fluxo-processamento', step: undefined });
     expect(s().current?.expanded.size).toBe(0);
@@ -402,7 +413,7 @@ describe('flows (SPEC §6.5)', () => {
 
   it('"Expandir" on a hidden step reveals both ends of its edge', () => {
     const { s } = setup();
-    s().init();
+    initMacro(s);
     s().selectFlow('fluxo-processamento');
     s().nextStep(); // e08: fila-pedidos -> worker-pedidos, inside sistema-pedidos
     s().revealCurrentStep();

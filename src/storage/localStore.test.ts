@@ -128,7 +128,7 @@ describe('localStore (SPEC §7)', () => {
 
   it('UI state and prefs fall back to defaults when missing or invalid', () => {
     const storage = testStorage({ [uiKey('x')]: '[]', 'sysviz:prefs': '{"theme":"neon"}' });
-    expect(loadUiState(storage, 'x')).toEqual({ expandedIds: [] });
+    expect(loadUiState(storage, 'x')).toBeUndefined();
     expect(loadPrefs(storage)).toEqual(DEFAULT_PREFS);
   });
 

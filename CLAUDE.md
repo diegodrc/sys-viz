@@ -75,7 +75,9 @@ entrada). Componentes só renderizam e despacham ações. Todo localStorage via 
   não for suportada, usar a anterior.
 - jsdom não tem `ResizeObserver`/`DOMMatrixReadOnly`/medidas: mockar em `src/test/setup.ts` e
   chamar elkjs direto (sem worker) nos testes.
-- Rotas do ELK são descartadas; arestas = `smoothstep` do React Flow.
+- Arestas = rotas ortogonais do ELK (`graph/edgeRoute.ts`), com fallback `smoothstep` quando uma
+  ponta foi arrastada; sistema sem expansão salva abre tudo expandido (ambos divergem da spec — ver
+  `DECISIONS.md` 2026-11-25). Testes da visão macro usam `showMacroView` (`src/test/store.ts`).
 - Posições salvas são relativas ao pai.
 - Repositório git em `main`; um commit por etapa (fim de cada fase do `tasks/plan.md`).
 - Aviso 1 da §4.2 (passos de fluxo) é sensível a ramificação — ver `DECISIONS.md`.
