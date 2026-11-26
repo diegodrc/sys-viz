@@ -20,14 +20,15 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      # Node 24 (npm 11) matches local development: npm 10 rejects the lockfile's
-      # optional wasm peer deps (@emnapi/*) as out of sync
       - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
 
-      - run: npm ci
+      # `npm install` instead of `npm ci`: npm never records the optional wasm peer deps
+      # (@emnapi/* of @rolldown/binding-wasm32-wasi) in the lockfile, so `npm ci` rejects it as
+      # out of sync on Linux. `npm install` still honours the lockfile and the pinned versions.
+      - run: npm install --no-audit --no-fund
       - run: npm test
       - run: npm run typecheck
       - run: npm run lint
