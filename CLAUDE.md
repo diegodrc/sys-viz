@@ -8,7 +8,7 @@ relevantes à tarefa (mapa abaixo), não o arquivo inteiro.
 
 ## Estado atual
 
-Etapas 1–10 implementadas. Critérios A1–A22: ver [tasks/acceptance.md](tasks/acceptance.md) —
+Etapas 1–16 implementadas (11–16 = lógica de negócio, SPEC §18). Critérios A1–A22 e L1–L12: ver [tasks/acceptance.md](tasks/acceptance.md) —
 pendentes só verificações manuais (A18 via `file://`, A19 instalação PWA) e a meta de desempenho
 (§11), não atingida no navegador embutido. Plano e checklist: [tasks/plan.md](tasks/plan.md), [tasks/todo.md](tasks/todo.md). Atualize esta linha ao
 concluir cada etapa.
@@ -43,7 +43,7 @@ Versões **exatas** (sem `^`), registradas em `DECISIONS.md`.
 | Prompts de IA (texto literal — não alterar)                        | §9                             |
 | Exemplo (não alterar)                                              | §10                            |
 | Estilo de código / ESLint / Prettier                               | §16                            |
-| Lógica de negócio (v2, planejada — etapas 11–16)                   | §18 (+ §18.10 para mudanças)   |
+| Lógica de negócio (schema v2, tela de lógica, Seguir, busca)       | §18                            |
 
 ## Arquitetura (SPEC §8)
 
@@ -93,4 +93,7 @@ entrada). Componentes só renderizam e despacham ações. Todo localStorage via 
   (`dispatchEvent`, setter nativo de `value` + evento `input`).
 - Patches multi-linha via `node -e "..."` quebram com crases (o bash executa `...`): escreva o
   script num arquivo em `$TEMP` com heredoc `<<'EOF'` ou use a ferramenta Edit.
+- Lógica de negócio: funções puras em `graph/logic.ts`, `graph/logicLayout.ts`, `schema/validateLogic.ts`,
+  `schema/editLogic.ts`; UI em `components/Logic/`. O exemplo v2 é gerado por `scripts/build-example-v2.mjs`
+  (§10 + §18.13) e os prompts por `scripts/extract-prompts.mjs` — rode-os se a spec mudar.
 - Não usar `python3` no Bash (é o stub da Microsoft Store e trava); use `node`.

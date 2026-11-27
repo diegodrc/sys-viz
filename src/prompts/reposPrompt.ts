@@ -1,4 +1,4 @@
-import exampleJson from '../examples/example-system.json?raw';
+import exampleJson from '../examples/example-system-v2.json?raw';
 import { systemDocJsonSchemaText } from '../schema/jsonSchema';
 import { fillTemplate } from './fill';
 import template from './repos.txt?raw';

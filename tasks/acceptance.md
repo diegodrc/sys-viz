@@ -49,3 +49,20 @@ eventos DOM quando cliques reais não chegavam à aba.
    o app (ícone na barra de endereço), desligue a rede e abra o app instalado.
 3. **Desempenho** — no seu Chrome, importe um sistema com ~300 nós e confira
    `performance.getEntriesByName('sysviz:layout')` no console.
+
+## Lógica de negócio (SPEC §18.14) — verificado em 2026-11-27
+
+| #   | Status | Evidência                                                                                                                                     |
+| --- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| L1  | ✅     | Teste: `migrations.test.ts`, `validateLogic.test.ts` (v1 migra para v2 sem `logic`).                                                          |
+| L2  | ✅     | Teste: `validateLogic.test.ts` (exemplo v2 = §10 + §18.13, sem erros nem avisos).                                                             |
+| L3  | ✅     | Teste: `logic.test.ts` (contagem), `Logic.test.tsx` (ícones e badges, expandido e macro). Navegador: 2 ícones, badges 1/1.                    |
+| L4  | ✅     | Teste: `Logic.test.tsx` ("Abrir lógica" → 11 passos, 11 transições, trilha, losango). Navegador: idem, rótulos sim/não nos ramos certos.      |
+| L5  | ✅     | Teste: `Logic.test.tsx` (chip → mapa, aresta selecionada, ancestrais expandidos, pulso). Navegador: idem.                                     |
+| L6  | ✅     | Teste: `Logic.test.tsx` (5 passos, "Usado em", Esc volta ao handler e depois ao mapa). Navegador: idem.                                       |
+| L7  | ✅     | Teste: `logic.test.ts` (`followTrigger` → `['e17']`), `Logic.test.tsx` (trilha estendida). Navegador: idem.                                   |
+| L8  | ✅     | Teste: `logic.test.ts` (`[]`, Consumer B não mapeado), `Logic.test.tsx` (botão desabilitado com tooltip). Navegador: idem.                    |
+| L9  | ✅     | Teste: `Logic.test.tsx` ("Ver lógica" nos passos 4 e 8, ausente no 5).                                                                        |
+| L10 | ✅     | Teste: `logic.test.ts`, `Logic.test.tsx` (grupo Campos, abre com `val-prazo` pulsando). Navegador: busca por "status".                        |
+| L11 | ✅     | Teste: `Logic.test.tsx` (filtro `trigger` deixa só os dois gatilhos acesos).                                                                  |
+| L12 | ✅     | Teste: `Logic.test.tsx` (título persiste após recarregar; sem campo de id), `editLogic` via store (mudança de categoria inválida é recusada). |

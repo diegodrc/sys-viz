@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { App } from '../../App';
 import { t } from '../../i18n/pt-BR';
 import { buildCreatePrompt } from '../../prompts/createPrompt';
+import { buildLogicPrompt } from '../../prompts/logicPrompt';
 import { buildReposPrompt } from '../../prompts/reposPrompt';
 import { createTestStore, showMacroView } from '../../test/store';
 
@@ -63,6 +64,16 @@ describe('Gerar com IA (SPEC §9.1)', () => {
     expect(await navigator.clipboard.readText()).toBe(buildReposPrompt());
   });
 
+  it('"Mapear lógica" embeds the current system with its logic and has its own instructions', async () => {
+    const { store, user } = await setup();
+    await user.click(screen.getAllByRole('button', { name: t.ai.button })[0]!);
+    await user.click(within(dialog()).getByRole('tab', { name: t.ai.tabLogic }));
+    const doc = store.getState().current?.doc;
+    if (!doc) throw new Error('a system is open');
+    expect(within(dialog()).getByRole('tabpanel')).toHaveValue(buildLogicPrompt(doc));
+    expect(within(dialog()).getByText(t.ai.instructionsLogic)).toBeInTheDocument();
+  });
+
   it('"Importar JSON" switches to the import dialog', async () => {
     const { user } = await setup();
     await user.click(screen.getAllByRole('button', { name: t.ai.button })[0]!);
@@ -76,6 +87,7 @@ describe('Gerar com IA (SPEC §9.1)', () => {
     act(() => store.getState().closeSystem());
     await user.click(screen.getAllByRole('button', { name: t.ai.button })[0]!);
     expect(within(dialog()).getByRole('tab', { name: t.ai.tabEvolve })).toBeDisabled();
+    expect(within(dialog()).getByRole('tab', { name: t.ai.tabLogic })).toBeDisabled();
   });
 });
 

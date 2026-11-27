@@ -4,21 +4,33 @@ import { t } from '../../i18n/pt-BR';
 import { copyText } from '../../platform/clipboard';
 import { buildCreatePrompt } from '../../prompts/createPrompt';
 import { buildEvolvePrompt } from '../../prompts/evolvePrompt';
+import { buildLogicPrompt } from '../../prompts/logicPrompt';
 import { buildReposPrompt } from '../../prompts/reposPrompt';
 import { useApp } from '../../store/context';
 import { Dialog } from '../common/Dialog';
 
-type Tab = 'create' | 'repos' | 'evolve';
+type Tab = 'create' | 'repos' | 'evolve' | 'logic';
 
-const TABS: readonly Tab[] = ['create', 'repos', 'evolve'];
+const TABS: readonly Tab[] = ['create', 'repos', 'evolve', 'logic'];
+
+/** Tabs whose prompt embeds the open system (SPEC §9.1). */
+const NEEDS_DOC: ReadonlySet<Tab> = new Set(['evolve', 'logic']);
+
+const INSTRUCTIONS: Readonly<Record<Tab, string>> = {
+  create: t.ai.instructions,
+  repos: t.ai.instructionsRepos,
+  evolve: t.ai.instructions,
+  logic: t.ai.instructionsLogic,
+};
 
 const TAB_LABELS: Readonly<Record<Tab, string>> = {
   create: t.ai.tabCreate,
   repos: t.ai.tabRepos,
   evolve: t.ai.tabEvolve,
+  logic: t.ai.tabLogic,
 };
 
-/** "Gerar com IA": create/repos/evolve prompts with copy and a shortcut to import (SPEC §9.1). */
+/** "Gerar com IA": create/repos/evolve/logic prompts, copy and a shortcut to import (SPEC §9.1). */
 export function AiPromptDialog() {
   const open = useApp((s) => s.dialog === 'ai');
   const doc = useApp((s) => s.current?.doc);
@@ -28,10 +40,11 @@ export function AiPromptDialog() {
   const [status, setStatus] = useState<string | null>(null);
   const textId = useId();
 
-  const activeTab: Tab = tab === 'evolve' && !doc ? 'create' : tab;
+  const activeTab: Tab = NEEDS_DOC.has(tab) && !doc ? 'create' : tab;
   const prompt = useMemo(() => {
     if (!open) return '';
     if (activeTab === 'evolve' && doc) return buildEvolvePrompt(doc);
+    if (activeTab === 'logic' && doc) return buildLogicPrompt(doc);
     if (activeTab === 'repos') return buildReposPrompt();
     return buildCreatePrompt();
   }, [open, activeTab, doc]);
@@ -82,8 +95,8 @@ export function AiPromptDialog() {
             role="tab"
             aria-selected={activeTab === id}
             aria-controls={textId}
-            disabled={id === 'evolve' && !doc}
-            title={id === 'evolve' && !doc ? t.ai.evolveDisabled : undefined}
+            disabled={NEEDS_DOC.has(id) && !doc}
+            title={NEEDS_DOC.has(id) && !doc ? t.ai.evolveDisabled : undefined}
             className={`-mb-px border-b-2 px-3 py-1.5 text-sm disabled:opacity-50 ${activeTab === id ? 'border-accent font-semibold text-accent' : 'border-transparent text-text-muted'}`}
             onClick={() => choose(id)}
           >
@@ -102,9 +115,7 @@ export function AiPromptDialog() {
         value={prompt}
         onFocus={(event) => event.target.select()}
       />
-      <p className="mt-2 text-sm text-text-muted">
-        {activeTab === 'repos' ? t.ai.instructionsRepos : t.ai.instructions}
-      </p>
+      <p className="mt-2 text-sm text-text-muted">{INSTRUCTIONS[activeTab]}</p>
       {status && (
         <p role="status" className="mt-1 text-sm">
           {status}

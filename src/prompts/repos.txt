@@ -46,9 +46,10 @@ Faça no máximo 5 perguntas por mensagem e espere as respostas. Repita até nã
 - Use "label" curto nas arestas (até 40 caracteres) e "description" para detalhes.
 - Crie um fluxo (em "flows") para o fluxo descrito pelo usuário, com os passos na ordem; ramificações entram em sequência (termine um ramo e depois o outro). Use "note" nos passos para explicar o que acontece.
 - Não inclua o campo "layout".
+- Não inclua o campo "logic"; a lógica de negócio é mapeada depois, com o prompt "Mapear lógica".
 
 ## Saída final
-Depois que o usuário confirmar o inventário, gere o documento completo. Se você puder criar arquivos, salve-o como sysviz-<id-do-sistema>.json na raiz do workspace e informe o caminho; caso contrário, responda com UM ÚNICO bloco de código ```json, sem comentários dentro do JSON. Antes de entregar, verifique: todos os ids são únicos, toda aresta aponta para nós existentes, todo passo de fluxo aponta para arestas existentes, "schemaVersion" é 1 e não há nenhum segredo no conteúdo.
+Depois que o usuário confirmar o inventário, gere o documento completo. Se você puder criar arquivos, salve-o como sysviz-<id-do-sistema>.json na raiz do workspace e informe o caminho; caso contrário, responda com UM ÚNICO bloco de código ```json, sem comentários dentro do JSON. Antes de entregar, verifique: todos os ids são únicos, toda aresta aponta para nós existentes, todo passo de fluxo aponta para arestas existentes, "schemaVersion" é 2 e não há nenhum segredo no conteúdo.
 
 Se o usuário colar uma lista de erros de validação do sys-viz, corrija e devolva o JSON completo novamente, mantendo os ids.
 

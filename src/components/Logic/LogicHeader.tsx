@@ -27,7 +27,7 @@ export function LogicHeader() {
         <ArrowLeft size={16} aria-hidden />
         {t.logic.backToMap}
       </button>
-      <nav aria-label={t.logic.trail} className="min-w-0 flex-1">
+      <nav aria-label={t.logic.trail} className="min-w-48 flex-1">
         <ol className="flex flex-wrap items-center gap-1 text-sm">
           {logic.trail.map((level, i) => {
             const label = levelLabel(doc, tree, level);

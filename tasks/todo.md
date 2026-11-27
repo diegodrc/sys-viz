@@ -78,3 +78,12 @@ Gate after every task: `npm test && npm run typecheck && npm run lint`.
 - [x] T10.2 Single-file offline (A18) — self-contained; `file://` double-click checked manually by the user (2026-11-25)
 - [x] T10.3 Full A1–A21 sweep + zero-network audit → [acceptance.md](acceptance.md)
 - [ ] **Checkpoint 10 (final)** — waiting on the manual checks above; §11 layout target not met in the embedded browser
+
+## Phases 11–16 — Lógica de negócio (SPEC §18)
+
+- [x] T11 Schema v2 (`logic`), migração 1→2, validação §18.5, exemplo v2 (L1, L2)
+- [x] T12 Índice de lógica, `followTrigger`, busca por campo
+- [x] T13 Indicadores no mapa, "Abrir lógica", "Usada em", "Ver lógica" (L3, L9)
+- [x] T14 Tela de lógica: trilha, layout ELK, cartões, filtro, painel e edição (L4–L6, L11, L12)
+- [x] T15 "Seguir" e busca por campo na UI (L7, L8, L10)
+- [x] T16 Aba "Mapear lógica" e prompts v2 (§18.10, §18.12)

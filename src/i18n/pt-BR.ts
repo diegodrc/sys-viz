@@ -330,7 +330,8 @@ export const t = {
     tabCreate: 'Criar novo sistema',
     tabRepos: 'Mapear a partir de repositórios',
     tabEvolve: 'Evoluir sistema atual',
-    evolveDisabled: 'Abra um sistema para gerar o prompt de evolução.',
+    tabLogic: 'Mapear lógica',
+    evolveDisabled: 'Abra um sistema para gerar este prompt.',
     promptLabel: 'Prompt para o agente de IA',
     copy: 'Copiar prompt',
     copied: 'Prompt copiado!',
@@ -339,6 +340,8 @@ export const t = {
       '1. Copie o prompt. 2. Cole em um agente de IA (ChatGPT, Claude, Copilot…). 3. Responda às perguntas. 4. Cole o JSON final em Importar.',
     instructionsRepos:
       '1. Abra um agente de IA com acesso aos repositórios do fluxo (Claude Code, Copilot, Cursor…). 2. Cole o prompt e descreva o fluxo passo a passo. 3. Confirme o inventário e responda às perguntas. 4. Cole o JSON final em Importar.',
+    instructionsLogic:
+      '1. Abra um agente de IA com acesso aos repositórios. 2. Cole o prompt e diga qual fluxo ou endpoint mapear. 3. Confirme a lógica proposta. 4. Cole o JSON final em Importar.',
     importJson: 'Importar JSON',
   },
   about: {

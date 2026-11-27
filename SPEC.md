@@ -94,7 +94,7 @@ A direção da aresta segue o **caminho do dado/requisição no fluxo**, não ne
 
 ---
 
-## 4. Formato JSON (schema v1)
+## 4. Formato JSON (schema v2)
 
 ### 4.1 Tipos (referência TypeScript — o schema Zod DEVE ser equivalente)
 
@@ -190,7 +190,7 @@ interface Flow {
 interface Position { x: number; y: number; }
 
 interface SystemDoc {
-  schemaVersion: 1;
+  schemaVersion: 2; // v1 é migrado na importação (§4.5)
   id: string;            // id do sistema; mesma regex
   name: string;
   description?: string;
@@ -210,7 +210,7 @@ interface SystemDoc {
 Erros (impedem importação):
 
 1. JSON sintaticamente inválido (mostrar linha/coluna quando possível).
-2. Falha de schema Zod (campo obrigatório ausente, tipo errado, enum inválido, `schemaVersion` ≠ 1).
+2. Falha de schema Zod (campo obrigatório ausente, tipo errado, enum inválido, `schemaVersion` diferente de 2 depois da migração da §4.5).
 3. `id` de nó duplicado em qualquer lugar da árvore.
 4. `id` de aresta duplicado; `id` de fluxo duplicado.
 5. Aresta com `source` ou `target` inexistente.
@@ -248,7 +248,7 @@ O importador DEVE detectar automaticamente se o arquivo é um `SystemDoc` (tem `
 
 ### 4.5 Migrações
 
-Manter `src/schema/migrations.ts` com um mapa `schemaVersion → função de migração`. Na v1 só existe a versão 1; versões maiores que a suportada geram erro claro ("Este arquivo foi gerado por uma versão mais nova do sys-viz").
+Manter `src/schema/migrations.ts` com um mapa `schemaVersion → função de migração`. A migração `1 → 2` só troca a versão (a v2 apenas acrescenta o campo opcional `logic`, §18.4); versões maiores que a suportada geram erro claro ("Este arquivo foi gerado por uma versão mais nova do sys-viz").
 
 ---
 
@@ -469,18 +469,19 @@ Princípios: toda lógica de grafo em funções **puras** e testáveis em `graph
 
 ### 9.1 Tela "Gerar com IA"
 
-Diálogo com três abas:
+Diálogo com quatro abas:
 
 1. **Criar novo sistema** — mostra o prompt de criação (9.2) em área somente leitura + botão **Copiar prompt**.
 2. **Mapear a partir de repositórios** — mostra o prompt de mapeamento por código (9.4) + **Copiar prompt**. Para agentes com acesso aos repositórios (Claude Code, Copilot, Cursor…).
 3. **Evoluir sistema atual** — habilitada se houver sistema aberto; mostra o prompt de evolução (9.3) com o JSON atual embutido + **Copiar prompt**.
+4. **Mapear lógica** — habilitada se houver sistema aberto; mostra o prompt de lógica (§18.12) com o JSON atual embutido + **Copiar prompt** (instruções na §18.10).
 
 Abaixo, instruções curtas: "1. Copie o prompt. 2. Cole em um agente de IA (ChatGPT, Claude, Copilot…). 3. Responda às perguntas. 4. Cole o JSON final em Importar." e botão **Importar JSON**. Na aba de repositórios, as instruções são: "1. Abra um agente de IA com acesso aos repositórios do fluxo (Claude Code, Copilot, Cursor…). 2. Cole o prompt e descreva o fluxo passo a passo. 3. Confirme o inventário e responda às perguntas. 4. Cole o JSON final em Importar."
 
 Os placeholders são substituídos em runtime:
 
 - `{{JSON_SCHEMA}}` → `JSON.stringify(z.toJSONSchema(SystemDocSchema), null, 2)`
-- `{{EXAMPLE_JSON}}` → conteúdo de `examples/example-system.json`
+- `{{EXAMPLE_JSON}}` → conteúdo de `examples/example-system-v2.json` (§18.10)
 - `{{CURRENT_JSON}}` → `SystemDoc` atual (sem `layout`, para economizar tokens — as posições são preservadas na importação por id)
 
 ### 9.2 Prompt de criação (texto literal)
@@ -509,9 +510,10 @@ Você é um arquiteto de software ajudando a mapear um sistema para a ferramenta
 - Use "label" curto nas arestas (até 40 caracteres) e "description" para detalhes.
 - Cada fluxo é uma lista ordenada de passos referenciando ids de arestas existentes; ramificações entram em sequência (termine um ramo e depois o outro).
 - Não inclua o campo "layout".
+- Não inclua o campo "logic"; a lógica de negócio é mapeada depois, com o prompt "Mapear lógica".
 
 ## Saída final
-Quando o usuário confirmar o resumo, responda com UM ÚNICO bloco de código ```json contendo o documento completo, sem comentários dentro do JSON. Antes de responder, verifique: todos os ids são únicos, toda aresta aponta para nós existentes, todo passo de fluxo aponta para arestas existentes, "schemaVersion" é 1.
+Quando o usuário confirmar o resumo, responda com UM ÚNICO bloco de código ```json contendo o documento completo, sem comentários dentro do JSON. Antes de responder, verifique: todos os ids são únicos, toda aresta aponta para nós existentes, todo passo de fluxo aponta para arestas existentes, "schemaVersion" é 2.
 
 Se o usuário colar uma lista de erros de validação do sys-viz, corrija e devolva o JSON completo novamente, mantendo os ids.
 
@@ -538,6 +540,7 @@ Você é um arquiteto de software ajudando a ATUALIZAR o mapeamento de um sistem
 - Só remova nós, arestas ou fluxos se o usuário pedir ou confirmar explicitamente. Ao remover um nó, remova também as arestas ligadas a ele e ajuste os fluxos afetados, avisando o usuário.
 - Novos elementos seguem as mesmas convenções de id (minúsculos, kebab-case, únicos).
 - Mantenha todos os campos existentes que não foram discutidos exatamente como estão.
+- Mantenha o campo "logic" como está. Se remover uma aresta ou nó, remova também os handlers e as referências (edgeId) que dependem dele, avisando o usuário.
 
 ## Como conduzir
 - Fale no idioma do usuário. Faça no máximo 3 perguntas curtas por mensagem.
@@ -549,7 +552,7 @@ Você é um arquiteto de software ajudando a ATUALIZAR o mapeamento de um sistem
 (As mesmas do documento original:) hierarquia lógica via "children", infraestrutura no campo "hosting", gateways/filas/bancos como nós, direção das arestas = caminho do dado (fila → consumidor; exchange → fila com metadata.routingKey), nenhuma aresta entre um nó e seu ancestral/descendente, valores de metadata como string, sem campo "layout".
 
 ## Saída final
-Após a confirmação, responda com UM ÚNICO bloco ```json com o documento COMPLETO (não um diff), "schemaVersion": 1. Verifique unicidade de ids e referências de arestas e fluxos antes de responder.
+Após a confirmação, responda com UM ÚNICO bloco ```json com o documento COMPLETO (não um diff), "schemaVersion": 2. Verifique unicidade de ids e referências de arestas e fluxos antes de responder.
 
 Se o usuário colar uma lista de erros de validação do sys-viz, corrija e devolva o JSON completo novamente.
 
@@ -619,9 +622,10 @@ Faça no máximo 5 perguntas por mensagem e espere as respostas. Repita até nã
 - Use "label" curto nas arestas (até 40 caracteres) e "description" para detalhes.
 - Crie um fluxo (em "flows") para o fluxo descrito pelo usuário, com os passos na ordem; ramificações entram em sequência (termine um ramo e depois o outro). Use "note" nos passos para explicar o que acontece.
 - Não inclua o campo "layout".
+- Não inclua o campo "logic"; a lógica de negócio é mapeada depois, com o prompt "Mapear lógica".
 
 ## Saída final
-Depois que o usuário confirmar o inventário, gere o documento completo. Se você puder criar arquivos, salve-o como sysviz-<id-do-sistema>.json na raiz do workspace e informe o caminho; caso contrário, responda com UM ÚNICO bloco de código ```json, sem comentários dentro do JSON. Antes de entregar, verifique: todos os ids são únicos, toda aresta aponta para nós existentes, todo passo de fluxo aponta para arestas existentes, "schemaVersion" é 1 e não há nenhum segredo no conteúdo.
+Depois que o usuário confirmar o inventário, gere o documento completo. Se você puder criar arquivos, salve-o como sysviz-<id-do-sistema>.json na raiz do workspace e informe o caminho; caso contrário, responda com UM ÚNICO bloco de código ```json, sem comentários dentro do JSON. Antes de entregar, verifique: todos os ids são únicos, toda aresta aponta para nós existentes, todo passo de fluxo aponta para arestas existentes, "schemaVersion" é 2 e não há nenhum segredo no conteúdo.
 
 Se o usuário colar uma lista de erros de validação do sys-viz, corrija e devolva o JSON completo novamente, mantendo os ids.
 
@@ -827,6 +831,7 @@ Usando o sistema de exemplo (seção 10):
 | A20 | Exportar backup, limpar localStorage, recarregar (o exemplo é carregado automaticamente, A1), importar backup e escolher **Substituir todos** | Todos os sistemas restaurados com o conteúdo do backup. |
 | A21 | `npm test`, `npm run typecheck`, `npm run lint` | Todos passam sem erros. |
 | A22 | Aba "Mapear a partir de repositórios" | Prompt é o texto literal da §9.4 com JSON Schema e exemplo embutidos; "Copiar" copia o texto completo; funciona sem sistema aberto. |
+| L1–L12 | Lógica de negócio | Critérios da §18.14. |
 
 ---
 

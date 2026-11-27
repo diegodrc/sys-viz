@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import specRaw from '../../SPEC.md?raw';
-import exampleRaw from '../examples/example-system.json?raw';
+import exampleRaw from '../examples/example-system-v2.json?raw';
 import { systemDocJsonSchemaText } from '../schema/jsonSchema';
 import { exampleDoc } from '../test/fixtures';
 import { buildCreatePrompt, CREATE_PROMPT_TEMPLATE } from './createPrompt';
 import { buildEvolvePrompt, EVOLVE_PROMPT_TEMPLATE } from './evolvePrompt';
 import { fillTemplate } from './fill';
+import { buildLogicPrompt, LOGIC_PROMPT_TEMPLATE } from './logicPrompt';
 import { buildReposPrompt, REPOS_PROMPT_TEMPLATE } from './reposPrompt';
 
 const spec = specRaw.replace(/\r\n/g, '\n');
@@ -43,9 +44,30 @@ describe('prompt templates are the literal SPEC §9 text', () => {
     expect(REPOS_PROMPT_TEMPLATE).toContain('metadata.source');
   });
 
-  it('the three templates are distinct', () => {
-    const all = new Set([CREATE_PROMPT_TEMPLATE, EVOLVE_PROMPT_TEMPLATE, REPOS_PROMPT_TEMPLATE]);
-    expect(all.size).toBe(3);
+  it('logic prompt (§18.12) is byte-equal to the spec', () => {
+    expect(LOGIC_PROMPT_TEMPLATE).toBe(
+      extractPrompt(spec, '### 18.12 Prompt "Mapear lógica" (texto literal)'),
+    );
+    expect(LOGIC_PROMPT_TEMPLATE).toContain('"schemaVersion": 2');
+  });
+
+  it('the four templates are distinct', () => {
+    const all = new Set([
+      CREATE_PROMPT_TEMPLATE,
+      EVOLVE_PROMPT_TEMPLATE,
+      REPOS_PROMPT_TEMPLATE,
+      LOGIC_PROMPT_TEMPLATE,
+    ]);
+    expect(all.size).toBe(4);
+  });
+
+  it('SPEC §18.10: the map prompts ask for schemaVersion 2 and leave "logic" alone', () => {
+    for (const template of [CREATE_PROMPT_TEMPLATE, REPOS_PROMPT_TEMPLATE]) {
+      expect(template).toContain('"schemaVersion" é 2');
+      expect(template).toContain('- Não inclua o campo "logic";');
+    }
+    expect(EVOLVE_PROMPT_TEMPLATE).toContain('"schemaVersion": 2');
+    expect(EVOLVE_PROMPT_TEMPLATE).toContain('- Mantenha o campo "logic" como está.');
   });
 });
 
@@ -62,7 +84,7 @@ describe('placeholders (SPEC §9.1)', () => {
     expect(prompt).not.toContain('{{');
     expect(prompt).toContain(systemDocJsonSchemaText());
     expect(prompt).toContain(exampleRaw.trim());
-    expect(prompt).toContain('```json\n{\n  "schemaVersion": 1,');
+    expect(prompt).toContain('```json\n{\n  "schemaVersion": 2,');
   });
 
   it('A17: evolve prompt embeds the current document without layout', () => {
@@ -75,6 +97,22 @@ describe('placeholders (SPEC §9.1)', () => {
     expect(current).not.toContain('"layout"');
     expect(current).not.toContain('"positions"');
     expect(current).toContain(JSON.stringify(exampleDoc(), null, 2));
+  });
+
+  it('logic prompt embeds the current document (with its logic) without layout', () => {
+    const doc = { ...exampleDoc(), layout: { positions: { apigee: { x: 1, y: 2 } } } };
+    const prompt = buildLogicPrompt(doc);
+    expect(prompt).not.toContain('{{');
+    expect(prompt).toContain(systemDocJsonSchemaText());
+    const current = prompt.slice(prompt.indexOf('## Documento atual'));
+    expect(current).not.toContain('"positions"');
+    expect(current).toContain('"handlers"');
+    expect(current).toContain(JSON.stringify(exampleDoc(), null, 2));
+  });
+
+  it('the embedded JSON Schema describes schema v2 with logic', () => {
+    expect(systemDocJsonSchemaText()).toContain('"logic"');
+    expect(systemDocJsonSchemaText()).toContain('"const": 2');
   });
 
   it('values containing $ patterns are inserted literally', () => {
