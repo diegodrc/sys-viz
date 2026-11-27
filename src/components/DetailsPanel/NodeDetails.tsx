@@ -1,6 +1,8 @@
-import { Pencil } from 'lucide-react';
+import { Pencil, Workflow } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { buildLogicIndex } from '../../graph/logic';
 import type { TreeIndex } from '../../graph/tree';
+import { handlerName } from '../../schema/logic';
 import { t } from '../../i18n/pt-BR';
 import type { SystemDoc } from '../../schema/system';
 import { useApp } from '../../store/context';
@@ -19,8 +21,17 @@ interface Props {
 /** Node details: read mode with all fields; "Editar" switches to the form (SPEC §6.6). */
 export function NodeDetails({ doc, tree, nodeId }: Props) {
   const focusNode = useApp((s) => s.focusNode);
+  const openLogic = useApp((s) => s.openLogic);
   const [editing, setEditing] = useState(false);
   const node = tree.byId.get(nodeId);
+  const handlers = useMemo(
+    () =>
+      (buildLogicIndex(doc).handlersOfNode.get(nodeId) ?? []).flatMap((edgeId) => {
+        const handler = doc.logic?.handlers?.find((h) => h.edgeId === edgeId);
+        return handler ? [{ edgeId, name: handlerName(doc, handler) }] : [];
+      }),
+    [doc, nodeId],
+  );
   const nameOf = (id: string): string => tree.byId.get(id)?.name ?? id;
   const incoming = useMemo(() => doc.edges.filter((e) => e.target === nodeId), [doc, nodeId]);
   const outgoing = useMemo(() => doc.edges.filter((e) => e.source === nodeId), [doc, nodeId]);
@@ -98,6 +109,27 @@ export function NodeDetails({ doc, tree, nodeId }: Props) {
           )}
         </FieldRow>
       </dl>
+      {handlers.length > 0 && (
+        <>
+          <h3 className="mt-2 text-xs font-medium uppercase tracking-wide text-text-muted">
+            {t.logic.handlersTitle}
+          </h3>
+          <ul className="flex flex-col gap-0.5">
+            {handlers.map((h) => (
+              <li key={h.edgeId}>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-1 rounded px-1 py-0.5 text-left text-sm text-accent hover:bg-surface-muted"
+                  onClick={() => openLogic(h.edgeId)}
+                >
+                  <Workflow size={14} aria-hidden />
+                  {h.name}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
       <h3 className="mt-2 text-xs font-medium uppercase tracking-wide text-text-muted">
         {f.incoming}
       </h3>

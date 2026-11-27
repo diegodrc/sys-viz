@@ -1,7 +1,8 @@
-import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Workflow, X } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
 import { stepLocation } from '../../graph/flowPath';
 import { buildTree } from '../../graph/tree';
+import { handlerOf } from '../../schema/logic';
 import { t } from '../../i18n/pt-BR';
 import { isTypingTarget } from '../../platform/keyboard';
 import { useApp } from '../../store/context';
@@ -14,6 +15,7 @@ export function FlowBar() {
   const previousStep = useApp((s) => s.previousStep);
   const selectFlow = useApp((s) => s.selectFlow);
   const revealCurrentStep = useApp((s) => s.revealCurrentStep);
+  const openLogic = useApp((s) => s.openLogic);
   const doc = current?.doc;
   const tree = useMemo(() => (doc ? buildTree(doc) : undefined), [doc]);
   const flow = activeFlow && doc?.flows?.find((f) => f.id === activeFlow.id);
@@ -47,6 +49,7 @@ export function FlowBar() {
       t.canvas.edgeLine('', nameOf(edge.source), nameOf(edge.target)))
     : '';
   const location = stepLocation(edge, tree, current.expanded);
+  const hasLogic = edge !== undefined && handlerOf(doc, edge.id) !== undefined;
 
   return (
     <div
@@ -78,6 +81,12 @@ export function FlowBar() {
           <span className="max-[700px]:sr-only">{t.flows.next}</span>
           <ChevronRight size={16} aria-hidden />
         </button>
+        {hasLogic && edge && (
+          <button type="button" className="btn" onClick={() => openLogic(edge.id)}>
+            <Workflow size={16} aria-hidden />
+            <span className="max-[700px]:sr-only">{t.logic.viewLogic}</span>
+          </button>
+        )}
         <button
           type="button"
           className="icon-button"

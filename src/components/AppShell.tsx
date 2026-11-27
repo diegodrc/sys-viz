@@ -9,6 +9,8 @@ import { NoticeBar } from './common/NoticeBar';
 import { DetailsPanel } from './DetailsPanel/DetailsPanel';
 import { ErrorBoundary } from './ErrorBoundary';
 import { ImportDialog } from './ImportDialog/ImportDialog';
+import { LogicDetailsPanel } from './Logic/LogicDetailsPanel';
+import { LogicView } from './Logic/LogicView';
 import { Sidebar } from './Sidebar/Sidebar';
 import { Topbar } from './Topbar/Topbar';
 
@@ -19,6 +21,7 @@ export function AppShell() {
   const theme = useApp((s) => s.prefs.theme);
   const currentId = useApp((s) => s.current?.doc.id);
   const closeSystem = useApp((s) => s.closeSystem);
+  const logicOpen = useApp((s) => s.logic !== undefined);
   useResolvedTheme(theme);
 
   useEffect(() => {
@@ -35,7 +38,13 @@ export function AppShell() {
         event.target.blur();
         return;
       }
-      store.getState().select(undefined);
+      const state = store.getState();
+      if (state.logic) {
+        // SPEC §18.7: Esc goes one trail level up, unless it is closing a dialog or popover
+        if (!document.querySelector('[role="dialog"]')) state.logicBack();
+        return;
+      }
+      state.select(undefined);
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
@@ -49,10 +58,10 @@ export function AppShell() {
         {sidebarOpen && <Sidebar />}
         <main className="relative min-w-0 flex-1">
           <ErrorBoundary resetKey={currentId} onReset={closeSystem}>
-            <Canvas />
+            {logicOpen ? <LogicView /> : <Canvas />}
           </ErrorBoundary>
         </main>
-        <DetailsPanel />
+        {logicOpen ? <LogicDetailsPanel /> : <DetailsPanel />}
       </div>
       <ImportDialog />
       <AiPromptDialog />

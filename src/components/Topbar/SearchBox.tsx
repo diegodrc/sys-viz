@@ -1,22 +1,33 @@
 import { Search } from 'lucide-react';
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { searchNodes } from '../../graph/search';
+import { Fragment, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { searchFields, type FieldResult } from '../../graph/logic';
+import { searchNodes, type SearchResult } from '../../graph/search';
 import { buildTree } from '../../graph/tree';
 import { t } from '../../i18n/pt-BR';
 import { isTypingTarget } from '../../platform/keyboard';
 import { useApp } from '../../store/context';
+import { placeLabel } from '../Logic/labels';
 
-/** Node search with `/` shortcut and hierarchical results (SPEC §6.4). */
+type Item = { kind: 'node'; node: SearchResult } | { kind: 'field'; field: FieldResult };
+
+/** Node and field search with `/` shortcut (SPEC §6.4, §18.9: groups Componentes / Campos). */
 export function SearchBox() {
   const doc = useApp((s) => s.current?.doc);
   const focusSearchResult = useApp((s) => s.focusSearchResult);
+  const openStep = useApp((s) => s.openStep);
   const tree = useMemo(() => (doc ? buildTree(doc) : undefined), [doc]);
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listId = useId();
-  const results = useMemo(() => (tree ? searchNodes(tree, query) : []), [tree, query]);
+  const results = useMemo((): Item[] => {
+    if (!tree || !doc) return [];
+    return [
+      ...searchNodes(tree, query).map((node): Item => ({ kind: 'node', node })),
+      ...searchFields(doc, tree, query).map((field): Item => ({ kind: 'field', field })),
+    ];
+  }, [doc, tree, query]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
@@ -32,8 +43,9 @@ export function SearchBox() {
 
   if (!tree) return null;
 
-  const choose = (id: string): void => {
-    focusSearchResult(id);
+  const choose = (item: Item): void => {
+    if (item.kind === 'node') focusSearchResult(item.node.id);
+    else openStep(item.field.graph, item.field.stepId);
     setOpen(false);
     setQuery('');
     inputRef.current?.blur();
@@ -75,7 +87,7 @@ export function SearchBox() {
             setActive((i) => Math.max(i - 1, 0));
           } else if (event.key === 'Enter') {
             const result = results[active];
-            if (result) choose(result.id);
+            if (result) choose(result);
           }
         }}
       />
@@ -89,21 +101,58 @@ export function SearchBox() {
           {results.length === 0 && (
             <li className="px-3 py-1.5 text-sm text-text-muted">{t.search.noResults}</li>
           )}
-          {results.map((result, i) => (
-            <li
-              key={result.id}
-              role="option"
-              aria-selected={i === active}
-              className={`cursor-pointer px-3 py-1.5 text-sm ${i === active ? 'bg-surface-muted' : ''}`}
-              onMouseDown={(event) => {
-                // mousedown so the choice happens before the input blurs
-                event.preventDefault();
-                choose(result.id);
-              }}
-            >
-              {result.path.join(t.search.pathSeparator)}
-            </li>
-          ))}
+          {results.map((result, i) => {
+            const previous = results[i - 1];
+            const header =
+              previous?.kind !== result.kind
+                ? result.kind === 'node'
+                  ? t.search.groupComponents
+                  : t.search.groupFields
+                : undefined;
+            const key =
+              result.kind === 'node'
+                ? `node-${result.node.id}`
+                : `field-${result.field.stepId}-${result.field.field.name}-${i}`;
+            return (
+              <Fragment key={key}>
+                {header && (
+                  <li
+                    role="presentation"
+                    className="px-3 pb-0.5 pt-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-muted"
+                  >
+                    {header}
+                  </li>
+                )}
+                <li
+                  role="option"
+                  aria-selected={i === active}
+                  className={`cursor-pointer px-3 py-1.5 text-sm ${i === active ? 'bg-surface-muted' : ''}`}
+                  onMouseDown={(event) => {
+                    // mousedown so the choice happens before the input blurs
+                    event.preventDefault();
+                    choose(result);
+                  }}
+                >
+                  {result.kind === 'node' ? (
+                    result.node.path.join(t.search.pathSeparator)
+                  ) : (
+                    <>
+                      <span className="block">
+                        {t.search.fieldResult(
+                          result.field.field.name,
+                          t.logic.roles[result.field.field.role],
+                          result.field.stepTitle,
+                        )}
+                      </span>
+                      <span className="block text-xs text-text-muted">
+                        {placeLabel(result.field.place)}
+                      </span>
+                    </>
+                  )}
+                </li>
+              </Fragment>
+            );
+          })}
         </ul>
       )}
     </div>

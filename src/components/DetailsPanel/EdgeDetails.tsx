@@ -1,14 +1,17 @@
-import { Pencil } from 'lucide-react';
-import { useState } from 'react';
+import { Pencil, Workflow } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { buildLogicIndex } from '../../graph/logic';
 import type { TreeIndex } from '../../graph/tree';
 import { t } from '../../i18n/pt-BR';
-import type { SysEdge } from '../../schema/system';
+import type { SysEdge, SystemDoc } from '../../schema/system';
 import { useApp } from '../../store/context';
 import { EdgeForm } from './EdgeForm';
 import { FieldRow } from './FieldRow';
 import { IdRow } from './IdRow';
+import { LogicUsageList } from './LogicUsageList';
 
 interface Props {
+  doc: SystemDoc;
   edge: SysEdge;
   tree: TreeIndex;
   /** Optional step note shown above the fields (flow step navigation, SPEC §6.5). */
@@ -16,8 +19,11 @@ interface Props {
 }
 
 /** One original edge: read mode and "Editar" (SPEC §6.6). */
-export function EdgeDetails({ edge, tree, note }: Props) {
+export function EdgeDetails({ doc, edge, tree, note }: Props) {
   const focusNode = useApp((s) => s.focusNode);
+  const openLogic = useApp((s) => s.openLogic);
+  const logic = useMemo(() => buildLogicIndex(doc), [doc]);
+  const hasHandler = logic.handlersByEdge.has(edge.id);
   const [editing, setEditing] = useState(false);
   const f = t.details.fields;
   const nameOf = (id: string): string => tree.byId.get(id)?.name ?? id;
@@ -37,7 +43,13 @@ export function EdgeDetails({ edge, tree, note }: Props) {
   return (
     <div>
       {note && <p className="mb-2 rounded-md bg-surface-muted p-2 text-sm">{note}</p>}
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        {hasHandler && (
+          <button type="button" className="btn btn-primary" onClick={() => openLogic(edge.id)}>
+            <Workflow size={14} aria-hidden />
+            {t.logic.open}
+          </button>
+        )}
         <button type="button" className="btn" onClick={() => setEditing(true)}>
           <Pencil size={14} aria-hidden />
           {t.details.edit}
@@ -71,6 +83,15 @@ export function EdgeDetails({ edge, tree, note }: Props) {
             : t.details.confidence.confirmed}
         </FieldRow>
       </dl>
+      <h3 className="mt-2 text-xs font-medium uppercase tracking-wide text-text-muted">
+        {t.logic.usedIn}
+      </h3>
+      <LogicUsageList
+        doc={doc}
+        tree={tree}
+        usages={logic.usagesOfEdge.get(edge.id) ?? []}
+        empty={t.logic.noUsages}
+      />
     </div>
   );
 }

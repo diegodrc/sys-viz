@@ -15,6 +15,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { aggregateEdges } from '../../graph/aggregate';
 import { filterDimmedEdges, filterDimmedNodes } from '../../graph/filter';
 import { stepLocation } from '../../graph/flowPath';
+import { buildLogicIndex } from '../../graph/logic';
 import { buildTree } from '../../graph/tree';
 import { visibleNodeIds } from '../../graph/visibility';
 import { t } from '../../i18n/pt-BR';
@@ -41,6 +42,7 @@ function CanvasInner() {
   const activeFlow = useApp((s) => s.activeFlow);
   const filters = useApp((s) => s.filters);
   const pulse = useApp((s) => s.pulse);
+  const edgePulse = useApp((s) => s.edgePulse);
   const colorMode = useResolvedTheme(useApp((s) => s.prefs.theme));
   const { fitView } = useReactFlow();
 
@@ -52,6 +54,13 @@ function CanvasInner() {
     [doc, tree, expanded],
   );
   const edgesById = useMemo(() => new Map((doc?.edges ?? []).map((e) => [e.id, e])), [doc]);
+  const logicIndex = useMemo(() => (doc ? buildLogicIndex(doc) : undefined), [doc]);
+  // SPEC §18.7 "ver no mapa": the rendered edge holding the pulsing original edge
+  const pulseEdge = useMemo(() => {
+    if (!edgePulse || !tree || !expanded) return undefined;
+    const location = stepLocation(edgesById.get(edgePulse.id), tree, expanded);
+    return location.kind === 'rendered' ? location.renderedEdgeId : undefined;
+  }, [edgePulse, tree, expanded, edgesById]);
   const boxes = layout && doc && layout.docId === doc.id ? layout.boxes : undefined;
   const routes = layout && doc && layout.docId === doc.id ? layout.routes : undefined;
   const selectedNode = selection?.kind === 'node' ? selection.id : undefined;
@@ -87,9 +96,10 @@ function CanvasInner() {
         ? buildFlowNodes(tree, expanded, boxes, selectedNode, overlay, {
             filterDimmed: filterDimmed.nodes,
             ...(pulseId !== undefined ? { pulseId } : {}),
+            ...(logicIndex ? { logic: logicIndex } : {}),
           })
         : [],
-    [tree, expanded, boxes, selectedNode, overlay, filterDimmed, pulseId],
+    [tree, expanded, boxes, selectedNode, overlay, filterDimmed, pulseId, logicIndex],
   );
   const edges = useMemo(() => {
     if (!tree) return [];
@@ -103,8 +113,23 @@ function CanvasInner() {
       overlay,
       filterDimmed.edges,
       routes,
+      {
+        ...(logicIndex ? { logic: logicIndex } : {}),
+        ...(pulseEdge !== undefined ? { pulseEdgeId: pulseEdge } : {}),
+      },
     );
-  }, [rendered, derivedNodes, edgesById, tree, selectedEdge, overlay, filterDimmed, routes]);
+  }, [
+    rendered,
+    derivedNodes,
+    edgesById,
+    tree,
+    selectedEdge,
+    overlay,
+    filterDimmed,
+    routes,
+    logicIndex,
+    pulseEdge,
+  ]);
 
   // React Flow owns transient drag state; store-derived nodes replace it whenever they change
   // (state derived during render instead of an effect, to avoid a cascading re-render)
@@ -132,6 +157,22 @@ function CanvasInner() {
     if (pulseId === undefined || !pulseRendered || !nodesInitialized) return;
     void fitView({ nodes: [{ id: pulseId }], padding: 0.6, maxZoom: 1.2, duration: 300 });
   }, [pulseId, pulseToken, pulseRendered, nodesInitialized, fitView]);
+
+  // SPEC §18.7: center on the edge shown from a logic step once it is laid out
+  const pulseEnds = useMemo(() => {
+    const edge = pulseEdge === undefined ? undefined : edges.find((e) => e.id === pulseEdge);
+    return edge ? [edge.source, edge.target].join('|') : '';
+  }, [pulseEdge, edges]);
+  const edgePulseToken = edgePulse?.token;
+  useEffect(() => {
+    if (pulseEnds === '' || !nodesInitialized) return;
+    void fitView({
+      nodes: pulseEnds.split('|').map((id) => ({ id })),
+      padding: 0.5,
+      maxZoom: 1.2,
+      duration: 300,
+    });
+  }, [pulseEnds, edgePulseToken, nodesInitialized, fitView]);
 
   // SPEC §6.5: the canvas centers on the current step (its edge ends, or the node holding it)
   const focusIds = overlay ? [...overlay.currentNodeIds].sort().join('|') : '';

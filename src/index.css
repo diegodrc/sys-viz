@@ -114,6 +114,31 @@ body,
   }
 }
 
+/* "Ver no mapa" from a logic step: the edge pulses for 2 s (SPEC §18.7) */
+.react-flow .sv-edge-pulse {
+  animation: sv-edge-pulse 0.5s ease-in-out 4 alternate;
+}
+
+@keyframes sv-edge-pulse {
+  from {
+    stroke-width: 2.5;
+  }
+  to {
+    stroke-width: 8;
+  }
+}
+
+/* Logic flowchart: handles at the top (in) and bottom (out), SPEC §18.7 */
+.react-flow .sv-logic-handle {
+  width: 6px;
+  height: 6px;
+  min-width: 0;
+  min-height: 0;
+  border: none;
+  background: transparent;
+  pointer-events: none;
+}
+
 /* "Calculando layout…" only appears if the layout takes longer than 300 ms (SPEC §5.5) */
 .sv-delayed-show {
   opacity: 0;

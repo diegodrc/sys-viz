@@ -1,4 +1,5 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react';
+import { Workflow } from 'lucide-react';
 import { memo } from 'react';
 import { t } from '../../i18n/pt-BR';
 import { NODE_TYPE_STYLES } from '../../theme/nodeTypes';
@@ -34,6 +35,16 @@ function SysNodeCardView({ data, selected }: NodeProps<SysFlowNode>) {
             title={t.hosting.title(data.hosting.platform)}
           >
             {t.hosting.short[data.hosting.platform]}
+          </span>
+        )}
+        {data.handlerCount > 0 && (
+          <span
+            className="flex items-center gap-0.5 rounded bg-surface-muted px-1 text-[10px] font-semibold text-accent"
+            title={t.logic.handlersBadge(data.handlerCount)}
+            data-testid="handler-badge"
+          >
+            <Workflow size={10} aria-hidden />
+            {data.handlerCount}
           </span>
         )}
         {data.isGroup && (

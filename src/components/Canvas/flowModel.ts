@@ -3,6 +3,7 @@ import type { RenderedEdge } from '../../graph/aggregate';
 import type { EdgeRoute, EdgeRoutes } from '../../graph/edgeRoute';
 import { flowHighlight, stepLocation, type FlowHighlight } from '../../graph/flowPath';
 import { FILTER_DIM_OPACITY } from '../../graph/filter';
+import { anyHasHandler, handlerBadgeCount, type LogicIndex } from '../../graph/logic';
 import type { Boxes } from '../../graph/layout';
 import type { TreeIndex } from '../../graph/tree';
 import { isExpandedGroup, visibleNodeIds } from '../../graph/visibility';
@@ -28,6 +29,8 @@ export interface SysNodeData extends Record<string, unknown> {
   emphasized: boolean;
   /** Search result: pulses for 2 s (SPEC §6.4). */
   pulsing: boolean;
+  /** Handlers mapped on this node (collapsed groups add their descendants', SPEC §18.6). */
+  handlerCount: number;
 }
 
 export type SysFlowNode = Node<SysNodeData, 'sysNode' | 'sysGroup'>;
@@ -48,6 +51,10 @@ export interface SysEdgeData extends Record<string, unknown> {
   dimOpacity: number;
   /** ELK route, drawn while both ends stay where ELK put them. */
   route: EdgeRoute | undefined;
+  /** At least one original edge has a handler (logic icon, SPEC §18.6). */
+  hasLogic: boolean;
+  /** "Ver no mapa" from a logic step: pulses for 2 s (SPEC §18.7). */
+  pulsing: boolean;
 }
 
 export type SysFlowEdge = Edge<SysEdgeData, 'sysEdge'>;
@@ -92,7 +99,7 @@ export function buildFlowNodes(
   boxes: Boxes,
   selectedId: string | undefined,
   overlay?: FlowOverlay,
-  extras: { filterDimmed?: ReadonlySet<string>; pulseId?: string } = {},
+  extras: { filterDimmed?: ReadonlySet<string>; pulseId?: string; logic?: LogicIndex } = {},
 ): SysFlowNode[] {
   const placed = new Set<string>();
   const nodes: SysFlowNode[] = [];
@@ -127,6 +134,7 @@ export function buildFlowNodes(
         isGroup: tree.isGroup(id),
         emphasized: overlay?.currentNodeIds.has(id) ?? false,
         pulsing: id === extras.pulseId,
+        handlerCount: extras.logic ? handlerBadgeCount(id, tree, expanded, extras.logic) : 0,
       },
     });
   }
@@ -168,6 +176,7 @@ export function buildFlowEdges(
   overlay?: FlowOverlay,
   filterDimmed?: ReadonlySet<string>,
   routes?: EdgeRoutes,
+  extras: { logic?: LogicIndex; pulseEdgeId?: string } = {},
 ): SysFlowEdge[] {
   return rendered
     .filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target))
@@ -195,6 +204,8 @@ export function buildFlowEdges(
             filterDimmed?.has(edge.id) ? FILTER_DIM_OPACITY : 1,
           ),
           route: routes?.[edge.id],
+          hasLogic: extras.logic ? anyHasHandler(edge.edgeIds, extras.logic) : false,
+          pulsing: edge.id === extras.pulseEdgeId,
         },
       };
     });

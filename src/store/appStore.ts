@@ -11,6 +11,7 @@ import {
 import { EMPTY_FILTERS, type NodeFilters, type PlatformFilterValue } from '../graph/filter';
 import { readElkRoutes, type EdgeRoutes } from '../graph/edgeRoute';
 import { expandPath } from '../graph/flowPath';
+import { buildLogicElkGraph, readLogicLayout } from '../graph/logicLayout';
 import { positionsOf, resetPositions, setPositions } from '../graph/positions';
 import { buildTree, type TreeIndex } from '../graph/tree';
 import { expandAll, isVisible, pruneExpanded, visibleAncestor } from '../graph/visibility';
@@ -25,8 +26,19 @@ import {
 } from '../import/importSystem';
 import type { Issue } from '../schema/result';
 import { replaceEdge, replaceFlow, replaceNode, replaceSystemInfo } from '../schema/edit';
-import type { Flow, NodeType, SysEdge, SysNode, SystemDoc } from '../schema/system';
+import { replaceGraphInfo, replaceStep } from '../schema/editLogic';
+import { graphOf, handlerOf, type GraphRef } from '../schema/logic';
+import type {
+  Flow,
+  LogicStep,
+  NodeType,
+  StepCategory,
+  SysEdge,
+  SysNode,
+  SystemDoc,
+} from '../schema/system';
 import { validateSystemDoc } from '../schema/validate';
+import { logicErrors } from '../schema/validateLogic';
 import type { InvalidBackupEntry } from '../storage/backup';
 import {
   DEFAULT_PREFS,
@@ -72,6 +84,44 @@ export type Selection =
   | { kind: 'docEdge'; id: string }
   | { kind: 'flow'; id: string }
   | { kind: 'system' };
+
+/** One level of the logic drill-down trail (SPEC §18.7). */
+export type LogicLevel =
+  | { kind: 'handler'; edgeId: string }
+  | { kind: 'subprocess'; id: string; fromStepId: string | undefined };
+
+/** What the details panel shows in the logic view: a step, or the open handler/subprocess. */
+export type LogicSelection = { kind: 'step'; id: string } | { kind: 'graph' };
+
+export interface LogicView {
+  /** Never empty while the logic view is open; the last level is the one shown. */
+  trail: LogicLevel[];
+  selection: LogicSelection | undefined;
+  /** Category filter (SPEC §18.7); empty = no filter. Kept for the session. */
+  categories: ReadonlySet<StepCategory>;
+  /** Step to center and pulse (field search result, SPEC §18.9). */
+  pulse: { stepId: string; token: number } | undefined;
+}
+
+export interface LogicCanvasLayout {
+  /** "<doc id>|<level>": the layout belongs to this graph. */
+  key: string;
+  boxes: Boxes;
+  routes: EdgeRoutes;
+  revision: number;
+}
+
+export function levelRef(level: LogicLevel): GraphRef {
+  return level.kind === 'handler'
+    ? { kind: 'handler', edgeId: level.edgeId }
+    : { kind: 'subprocess', id: level.id };
+}
+
+export function logicLayoutKey(docId: string, level: LogicLevel): string {
+  return level.kind === 'handler'
+    ? docId + '|handler:' + level.edgeId
+    : docId + '|subprocess:' + level.id;
+}
 
 export interface CanvasLayout {
   docId: string;
@@ -123,6 +173,11 @@ export interface AppState {
   filters: NodeFilters;
   /** Node to center and pulse after a search (SPEC §6.4); a new token re-triggers the effect. */
   pulse: { id: string; token: number } | undefined;
+  /** Original edge to center and pulse after "ver no mapa" from a logic step (SPEC §18.7). */
+  edgePulse: { id: string; token: number } | undefined;
+  /** Logic drill-down (SPEC §18.7); undefined while the map is shown. */
+  logic: LogicView | undefined;
+  logicLayout: LogicCanvasLayout | undefined;
 
   init: () => void;
   loadExample: () => void;
@@ -183,6 +238,30 @@ export interface AppState {
   /** Search result chosen: expand ancestors, select, center and pulse for 2 s. */
   focusSearchResult: (id: string) => void;
   setTheme: (theme: Theme) => void;
+
+  // Business logic (SPEC §18.6–18.9)
+  /** Opens the handler of an incoming edge; `append` adds it to the trail ("Seguir"). */
+  openLogic: (edgeId: string, options?: { append?: boolean; stepId?: string }) => void;
+  /** Opens a shared subprocess on its own (field search result inside a subprocess). */
+  openSubprocess: (id: string, stepId?: string) => void;
+  /** Opens the subprocess of a step of the current level as a new trail level. */
+  openStepSubprocess: (stepId: string) => void;
+  /** Opens the graph holding a step and selects/pulses the step. */
+  openStep: (ref: GraphRef, stepId: string) => void;
+  goToLogicLevel: (index: number) => void;
+  /** Esc: one trail level up, or back to the map from the first level. */
+  logicBack: () => void;
+  closeLogic: () => void;
+  selectLogic: (selection: LogicSelection | undefined) => void;
+  toggleStepCategory: (category: StepCategory) => void;
+  clearStepCategories: () => void;
+  /** Back to the map with the edge's ends visible, the edge selected and pulsing. */
+  showEdgeOnMap: (edgeId: string) => void;
+  updateLogicStep: (ref: GraphRef, step: LogicStep) => boolean;
+  updateGraphInfo: (
+    ref: GraphRef,
+    info: { name: string | undefined; description: string | undefined },
+  ) => boolean;
 }
 
 /** User Timing name for each ELK run, to check the SPEC §11 target (≤ 1 s for 300 nodes). */
@@ -312,6 +391,57 @@ export function createAppStore(deps: AppDeps): AppStore {
       return id === undefined ? undefined : flowById(id);
     };
 
+    let logicToken = 0;
+
+    /** Runs ELK for the graph of the current logic level; stale results are discarded. */
+    const requestLogicLayout = (): void => {
+      const current = get().current;
+      const level = get().logic?.trail.at(-1);
+      if (!current || !level) return;
+      const graph = graphOf(current.doc, levelRef(level));
+      if (!graph) return;
+      const key = logicLayoutKey(current.doc.id, level);
+      const token = ++logicToken;
+      deps.layout(buildLogicElkGraph(graph)).then(
+        (result) => {
+          if (token !== logicToken) return;
+          const { boxes, routes } = readLogicLayout(result);
+          set((state) => ({
+            logicLayout: { key, boxes, routes, revision: (state.logicLayout?.revision ?? 0) + 1 },
+          }));
+        },
+        () => {
+          if (token !== logicToken) return;
+          set({ notice: { kind: 'error', message: t.canvas.layoutFailed } });
+        },
+      );
+    };
+
+    /** Shows a trail (replacing the current one) with an optional selected, pulsing step. */
+    const showLogic = (trail: LogicLevel[], focus: LogicSelection | undefined): void => {
+      const previous = get().logic;
+      const pulse =
+        focus?.kind === 'step'
+          ? { stepId: focus.id, token: (previous?.pulse?.token ?? 0) + 1 }
+          : undefined;
+      set({
+        logic: {
+          trail,
+          selection: focus,
+          categories: previous?.categories ?? new Set(),
+          pulse,
+        },
+        selection: undefined,
+      });
+      if (pulse) {
+        setTimeout(() => {
+          const logic = get().logic;
+          if (logic?.pulse?.token === pulse.token) set({ logic: { ...logic, pulse: undefined } });
+        }, PULSE_MS);
+      }
+      requestLogicLayout();
+    };
+
     const fixSelection = (tree: TreeIndex, expanded: ReadonlySet<string>): void => {
       const selection = get().selection;
       if (selection?.kind === 'node' && !isVisible(selection.id, tree, expanded)) {
@@ -340,7 +470,13 @@ export function createAppStore(deps: AppDeps): AppStore {
       const tree = buildTree(doc);
       const expanded =
         expandedIds === undefined ? expandAll(tree) : pruneExpanded(tree, expandedIds);
-      set({ current: { doc, expanded }, selection: undefined, activeFlow: undefined });
+      set({
+        current: { doc, expanded },
+        selection: undefined,
+        activeFlow: undefined,
+        logic: undefined,
+        logicLayout: undefined,
+      });
       setPrefs({ lastOpenedId: doc.id });
       requestLayout();
     };
@@ -432,6 +568,9 @@ export function createAppStore(deps: AppDeps): AppStore {
       activeFlow: undefined,
       filters: EMPTY_FILTERS,
       pulse: undefined,
+      edgePulse: undefined,
+      logic: undefined,
+      logicLayout: undefined,
 
       init() {
         const firstRun = !hasAnyAppKey(storage);
@@ -532,7 +671,7 @@ export function createAppStore(deps: AppDeps): AppStore {
       },
 
       closeSystem() {
-        set({ current: undefined });
+        set({ current: undefined, logic: undefined, logicLayout: undefined });
         setPrefs({ sidebarOpen: true, lastOpenedId: undefined });
       },
 
@@ -747,6 +886,8 @@ export function createAppStore(deps: AppDeps): AppStore {
       },
 
       focusSearchResult(id) {
+        // a component chosen while the logic view is open goes back to the map
+        if (get().logic) get().closeLogic();
         get().focusNode(id);
         const token = (get().pulse?.token ?? 0) + 1;
         set({ pulse: { id, token } });
@@ -762,6 +903,114 @@ export function createAppStore(deps: AppDeps): AppStore {
 
       updateSystemInfo(info) {
         return applyEdit((doc) => replaceSystemInfo(doc, info));
+      },
+
+      openLogic(edgeId, options = {}) {
+        const current = get().current;
+        if (!current || !handlerOf(current.doc, edgeId)) return;
+        const level: LogicLevel = { kind: 'handler', edgeId };
+        const previous = get().logic;
+        const trail = options.append && previous ? [...previous.trail, level] : [level];
+        showLogic(trail, options.stepId ? { kind: 'step', id: options.stepId } : undefined);
+      },
+
+      openSubprocess(id, stepId) {
+        const current = get().current;
+        if (!current || !graphOf(current.doc, { kind: 'subprocess', id })) return;
+        showLogic(
+          [{ kind: 'subprocess', id, fromStepId: undefined }],
+          stepId ? { kind: 'step', id: stepId } : { kind: 'graph' },
+        );
+      },
+
+      openStepSubprocess(stepId) {
+        const current = get().current;
+        const logic = get().logic;
+        const level = logic?.trail.at(-1);
+        if (!current || !logic || !level) return;
+        const step = graphOf(current.doc, levelRef(level))?.steps.find((s) => s.id === stepId);
+        const id = step?.subprocessId;
+        if (id === undefined || !graphOf(current.doc, { kind: 'subprocess', id })) return;
+        showLogic([...logic.trail, { kind: 'subprocess', id, fromStepId: stepId }], {
+          kind: 'graph',
+        });
+      },
+
+      openStep(ref, stepId) {
+        if (ref.kind === 'handler') get().openLogic(ref.edgeId, { stepId });
+        else get().openSubprocess(ref.id, stepId);
+      },
+
+      goToLogicLevel(index) {
+        const logic = get().logic;
+        if (!logic || index < 0 || index >= logic.trail.length) return;
+        set({ logic: { ...logic, trail: logic.trail.slice(0, index + 1), selection: undefined } });
+        requestLogicLayout();
+      },
+
+      logicBack() {
+        const logic = get().logic;
+        if (!logic) return;
+        if (logic.trail.length > 1) get().goToLogicLevel(logic.trail.length - 2);
+        else get().closeLogic();
+      },
+
+      closeLogic() {
+        logicToken++;
+        set({ logic: undefined, logicLayout: undefined });
+      },
+
+      selectLogic(selection) {
+        const logic = get().logic;
+        if (logic) set({ logic: { ...logic, selection } });
+      },
+
+      toggleStepCategory(category) {
+        const logic = get().logic;
+        if (!logic) return;
+        const categories = new Set(logic.categories);
+        if (categories.has(category)) categories.delete(category);
+        else categories.add(category);
+        set({ logic: { ...logic, categories } });
+      },
+
+      clearStepCategories() {
+        const logic = get().logic;
+        if (logic) set({ logic: { ...logic, categories: new Set() } });
+      },
+
+      showEdgeOnMap(edgeId) {
+        const current = get().current;
+        const edge = current && edgeMap(current.doc).get(edgeId);
+        if (!current || !edge) return;
+        get().closeLogic();
+        const tree = buildTree(current.doc);
+        const ancestors = [...tree.ancestorsOf(edge.source), ...tree.ancestorsOf(edge.target)];
+        if (ancestors.some((a) => !current.expanded.has(a))) {
+          applyExpansion([...current.expanded, ...ancestors]);
+        }
+        const token = (get().edgePulse?.token ?? 0) + 1;
+        set({ selection: { kind: 'docEdge', id: edgeId }, edgePulse: { id: edgeId, token } });
+        setTimeout(() => {
+          if (get().edgePulse?.token === token) set({ edgePulse: undefined });
+        }, PULSE_MS);
+      },
+
+      updateLogicStep(ref, step) {
+        const current = get().current;
+        if (!current) return false;
+        const doc = replaceStep(current.doc, ref, step);
+        // a category change can break a rule of SPEC §18.5 (e.g. the only "start")
+        const [problem] = logicErrors(doc);
+        if (problem) {
+          set({ notice: { kind: 'error', message: t.logic.edit.invalidLogic(problem.message) } });
+          return false;
+        }
+        return applyEdit(() => doc);
+      },
+
+      updateGraphInfo(ref, info) {
+        return applyEdit((doc) => replaceGraphInfo(doc, ref, info));
       },
 
       resetLayout() {

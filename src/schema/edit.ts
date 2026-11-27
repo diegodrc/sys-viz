@@ -67,18 +67,19 @@ export interface SystemDraft {
 // ---------------------------------------------------------------------------------------------
 // helpers
 
-const optional = (value: string): string | undefined => (value.trim() === '' ? undefined : value);
+export const optional = (value: string): string | undefined =>
+  value.trim() === '' ? undefined : value;
 
-function withoutUndefined<T extends object>(value: T): T {
+export function withoutUndefined<T extends object>(value: T): T {
   // drops keys whose value is undefined so absent fields stay absent in the document
   return Object.fromEntries(Object.entries(value).filter(([, v]) => v !== undefined)) as T; // keys only removed
 }
 
-function toPairs(record: Record<string, string> | undefined): PairDraft[] {
+export function toPairs(record: Record<string, string> | undefined): PairDraft[] {
   return Object.entries(record ?? {}).map(([key, value]) => ({ key, value }));
 }
 
-function metadataErrors(pairs: readonly PairDraft[]): FieldErrors {
+export function metadataErrors(pairs: readonly PairDraft[]): FieldErrors {
   const errors: FieldErrors = {};
   const seen = new Set<string>();
   pairs.forEach((pair, i) => {
@@ -91,7 +92,7 @@ function metadataErrors(pairs: readonly PairDraft[]): FieldErrors {
   return errors;
 }
 
-function toRecord(pairs: readonly PairDraft[]): Record<string, string> | undefined {
+export function toRecord(pairs: readonly PairDraft[]): Record<string, string> | undefined {
   if (pairs.length === 0) return undefined;
   const record: Record<string, string> = {};
   for (const pair of pairs) record[pair.key.trim()] = pair.value;
@@ -108,7 +109,7 @@ function zodErrors(issues: readonly z.core.$ZodIssue[]): FieldErrors {
 }
 
 /** Keeps an explicit "confirmed" if the original had it; otherwise "confirmed" stays absent. */
-function confidenceFrom(
+export function confidenceFrom(
   assumed: boolean,
   original: Confidence | undefined,
 ): Confidence | undefined {
@@ -116,7 +117,11 @@ function confidenceFrom(
   return original === 'confirmed' ? 'confirmed' : undefined;
 }
 
-function finish<T>(candidate: unknown, schema: z.ZodType<T>, extra: FieldErrors): DraftResult<T> {
+export function finish<T>(
+  candidate: unknown,
+  schema: z.ZodType<T>,
+  extra: FieldErrors,
+): DraftResult<T> {
   const parsed = schema.safeParse(candidate, { reportInput: true });
   const errors = { ...(parsed.success ? {} : zodErrors(parsed.error.issues)), ...extra };
   if (Object.keys(errors).length > 0 || !parsed.success) return { ok: false, errors };

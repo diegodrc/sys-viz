@@ -42,7 +42,9 @@ export function DetailsPanel() {
     const flow = activeFlow && doc.flows?.find((f) => f.id === activeFlow.id);
     const step = activeFlow?.step === undefined ? undefined : flow?.steps[activeFlow.step];
     const note = step?.edgeId === selection.id ? step.note : undefined;
-    body = edge ? <EdgeDetails key={edge.id} edge={edge} tree={tree} note={note} /> : null;
+    body = edge ? (
+      <EdgeDetails key={edge.id} doc={doc} edge={edge} tree={tree} note={note} />
+    ) : null;
   } else if (selection.kind === 'flow') {
     const flow = doc.flows?.find((f) => f.id === selection.id);
     title = t.details.kinds.flow;
@@ -57,7 +59,7 @@ export function DetailsPanel() {
     const single = originals.length === 1 ? originals[0] : undefined;
     if (single) {
       title = t.details.kinds.edge;
-      body = <EdgeDetails key={single.id} edge={single} tree={tree} />;
+      body = <EdgeDetails key={single.id} doc={doc} edge={single} tree={tree} />;
     } else if (originals.length > 1) {
       // SPEC §6.6: an aggregated edge lists its originals; editing opens the chosen one
       title = t.details.kinds.aggregated(originals.length);

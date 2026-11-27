@@ -6,7 +6,9 @@ import {
   type EdgeProps,
   type InternalNode,
 } from '@xyflow/react';
+import { Workflow } from 'lucide-react';
 import { memo } from 'react';
+import { t } from '../../i18n/pt-BR';
 import { midpoint, roundedPath, routeStillValid, type EdgeRoute } from '../../graph/edgeRoute';
 import type { Box } from '../../graph/positions';
 import type { SysFlowEdge } from '../Canvas/flowModel';
@@ -93,6 +95,7 @@ function SysEdgeViewInner({
         id={id}
         path={path}
         markerEnd={markerEnd}
+        className={data?.pulsing ? 'sv-edge-pulse' : undefined}
         style={{
           stroke,
           strokeWidth,
@@ -100,7 +103,7 @@ function SysEdgeViewInner({
           opacity,
         }}
       />
-      {(data?.text || data?.badge) && (
+      {(data?.text || data?.badge || data?.hasLogic) && (
         <EdgeLabelRenderer>
           <div
             className="nodrag nopan pointer-events-auto absolute flex items-center gap-1"
@@ -118,6 +121,15 @@ function SysEdgeViewInner({
                 data-testid="step-badge"
               >
                 {data.badge}
+              </span>
+            )}
+            {data.hasLogic && (
+              <span
+                className="flex items-center rounded border border-border bg-surface p-0.5 text-accent"
+                title={t.logic.hasLogic}
+                data-testid="logic-icon"
+              >
+                <Workflow size={12} aria-label={t.logic.hasLogic} />
               </span>
             )}
             {data.text && (
