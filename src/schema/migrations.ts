@@ -3,9 +3,11 @@ import { error, type Result } from './result';
 import { SCHEMA_VERSION } from './system';
 
 // SPEC §4.5: schemaVersion -> function that upgrades a document from that version to the next.
-// v1 is the only version, so the map is empty; add `1: (doc) => ...` when v2 exists.
 type Migration = (doc: Record<string, unknown>) => Record<string, unknown>;
-export const migrations: Readonly<Record<number, Migration>> = {};
+export const migrations: Readonly<Record<number, Migration>> = {
+  // SPEC §18.10: v2 only adds the optional `logic` section, so v1 documents just change version
+  1: (doc) => ({ ...doc, schemaVersion: 2 }),
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);

@@ -1,5 +1,5 @@
 import { createStore, type StoreApi } from 'zustand/vanilla';
-import example from '../examples/example-system.json';
+import example from '../examples/example-system-v2.json';
 import { aggregateEdges } from '../graph/aggregate';
 import {
   applySavedPositions,

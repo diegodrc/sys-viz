@@ -3,6 +3,7 @@ import { t } from '../i18n/pt-BR';
 import { migrate } from './migrations';
 import { error, formatPath, warning, type Issue, type PathSegment } from './result';
 import { SystemDocSchema, type SysEdge, type SysNode, type SystemDoc } from './system';
+import { logicErrors, logicWarnings } from './validateLogic';
 
 // Import validation (SPEC §4.2). Pure: never mutates its input and never throws for bad data.
 
@@ -143,6 +144,21 @@ function precheck(data: UnknownRecord): Issue[] {
     edges.forEach((edge, i) => {
       if (isRecord(edge)) checkMetadataKeys(edge, ['edges', i], issues);
     });
+  }
+  // SPEC §18.4: logic steps carry metadata too
+  const logic = data.logic;
+  if (isRecord(logic)) {
+    for (const key of ['handlers', 'subprocesses'] as const) {
+      const graphs = logic[key];
+      if (!Array.isArray(graphs)) continue;
+      graphs.forEach((graph: unknown, i) => {
+        const steps = isRecord(graph) ? graph.steps : undefined;
+        if (!Array.isArray(steps)) return;
+        steps.forEach((step: unknown, j) => {
+          if (isRecord(step)) checkMetadataKeys(step, ['logic', key, i, 'steps', j], issues);
+        });
+      });
+    }
   }
   return issues;
 }
@@ -420,6 +436,9 @@ export function validateSystemDoc(data: unknown): ValidationResult {
   const entries = walkNodes(parsed.data);
   const errors = semanticErrors(parsed.data, entries);
   if (errors.length > 0) return { ok: false, errors };
+  const logicIssues = logicErrors(parsed.data);
+  if (logicIssues.length > 0) return { ok: false, errors: logicIssues };
+  const parentOf = new Map(entries.map((e) => [e.node.id, e.parentId]));
 
   const nodeIds = new Set(entries.map((e) => e.node.id));
   const positions = dropUnknownPositions(parsed.data, nodeIds);
@@ -427,6 +446,7 @@ export function validateSystemDoc(data: unknown): ValidationResult {
     ...disconnectedStepWarnings(parsed.data),
     ...positions.warnings,
     ...isolatedRootWarnings(parsed.data, entries),
+    ...logicWarnings(parsed.data, parentOf),
     ...unknownFieldWarnings(raw, parsed.data, []),
   ];
   return { ok: true, value: positions.doc, warnings };

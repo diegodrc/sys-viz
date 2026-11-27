@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import example from '../examples/example-system.json';
+import example from '../examples/example-system-v2.json';
 import { systemDocJsonSchema, systemDocJsonSchemaText } from './jsonSchema';
 import { SystemDocSchema } from './system';
 

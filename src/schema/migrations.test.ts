@@ -3,8 +3,14 @@ import { migrate } from './migrations';
 
 describe('migrate', () => {
   it('passes the current version through unchanged', () => {
-    const doc = { schemaVersion: 1, id: 'x' };
+    const doc = { schemaVersion: 2, id: 'x' };
     expect(migrate(doc)).toEqual({ ok: true, value: doc });
+  });
+
+  it('L1: upgrades v1 documents to v2 without adding logic (SPEC §18.10)', () => {
+    const doc = { schemaVersion: 1, id: 'x', nodes: [] };
+    expect(migrate(doc)).toEqual({ ok: true, value: { schemaVersion: 2, id: 'x', nodes: [] } });
+    expect(doc.schemaVersion).toBe(1); // input not mutated
   });
 
   it('rejects documents from a newer version', () => {

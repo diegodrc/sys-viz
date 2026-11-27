@@ -361,6 +361,39 @@ export const t = {
       `A aresta ${q(edgeId)} liga ${q(ancestorId)} ao seu descendente ${q(descendantId)}.`,
     missingFlowEdge: (flowId: string, step: number, edgeId: string) =>
       `O passo ${step} do fluxo ${q(flowId)} referencia a aresta inexistente ${q(edgeId)}.`,
+    // business logic (SPEC §18.5)
+    logic: {
+      handlerLabel: (edgeId: string) => `o handler da aresta ${q(edgeId)}`,
+      subprocessLabel: (id: string) => `o subprocesso ${q(id)}`,
+      missingHandlerEdge: (edgeId: string) =>
+        `Um handler referencia a aresta inexistente ${q(edgeId)}.`,
+      duplicateHandler: (edgeId: string) => `A aresta ${q(edgeId)} tem mais de um handler.`,
+      duplicateStep: (id: string) => `O id de passo ${q(id)} está duplicado.`,
+      duplicateSubprocess: (id: string) => `O id de subprocesso ${q(id)} está duplicado.`,
+      badTransition: (graph: string, from: string, to: string) =>
+        `Uma transição em ${graph} liga ${q(from)} a ${q(to)}, que não são passos desse grafo.`,
+      missingStepEdge: (stepId: string, edgeId: string) =>
+        `O passo ${q(stepId)} referencia a aresta inexistente ${q(edgeId)}.`,
+      missingSubprocess: (stepId: string, id: string) =>
+        `O passo ${q(stepId)} referencia o subprocesso inexistente ${q(id)}.`,
+      startCount: (graph: string, n: number) =>
+        `Deve haver exatamente um passo "start" em ${graph} (há ${n}).`,
+      outcomeNotEnd: (stepId: string) =>
+        `O passo ${q(stepId)} tem "outcome", mas só passos "end" podem ter.`,
+      subprocessCycle: (ids: readonly string[]) =>
+        `Os subprocessos formam um ciclo: ${ids.map(q).join(' → ')}.`,
+      decisionExits: (stepId: string) => `A decisão ${q(stepId)} tem menos de duas saídas.`,
+      decisionLabel: (stepId: string, to: string) =>
+        `A saída da decisão ${q(stepId)} para ${q(to)} não tem rótulo.`,
+      noEnd: (graph: string) => `Não há nenhum passo "end" em ${graph}.`,
+      unreachable: (stepId: string, graph: string) =>
+        `O passo ${q(stepId)} não é alcançável a partir do início em ${graph}.`,
+      unusedSubprocess: (id: string) => `O subprocesso ${q(id)} não é usado por nenhum passo.`,
+      stepEdgeElsewhere: (stepId: string, edgeId: string, node: string) =>
+        `O passo ${q(stepId)} usa a aresta ${q(edgeId)}, que não sai de ${q(node)}.`,
+      edgeNotInLogic: (edgeId: string, node: string) =>
+        `A aresta ${q(edgeId)} sai de ${q(node)} mas não aparece em nenhuma lógica desse componente.`,
+    },
     // schema (Zod) errors
     schema: {
       required: 'Campo obrigatório ausente.',

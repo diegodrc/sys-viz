@@ -1,12 +1,12 @@
 import { z } from 'zod';
 
-// Zod schema for SystemDoc v1 (SPEC §4.1). No `.default()`: absent optional fields stay absent so
+// Zod schema for SystemDoc v2 (SPEC §4.1 + §18.4 business logic). No `.default()`: absent optional fields stay absent so
 // that exporting returns the document as it was imported; defaults are applied only when rendering.
 
 export const ID_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 export const NAME_MAX = 80;
 export const EDGE_LABEL_MAX = 40;
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 export const IdSchema = z.string().regex(ID_PATTERN);
 const NameSchema = z.string().min(1).max(NAME_MAX);
@@ -122,6 +122,85 @@ export const LayoutSchema = z.object({
 });
 export type Layout = z.infer<typeof LayoutSchema>;
 
+// ---------------------------------------------------------------------------------------------
+// Business logic (SPEC §18.4)
+
+export const STEP_CATEGORIES = [
+  'start',
+  'validation',
+  'fetch',
+  'default',
+  'rule',
+  'decision',
+  'persist',
+  'trigger',
+  'end',
+] as const;
+export const StepCategorySchema = z.enum(STEP_CATEGORIES);
+export type StepCategory = z.infer<typeof StepCategorySchema>;
+
+export const FIELD_ROLES = ['read', 'write', 'validate'] as const;
+export const FieldRoleSchema = z.enum(FIELD_ROLES);
+export type FieldRole = z.infer<typeof FieldRoleSchema>;
+
+export const OutcomeSchema = z.enum(['success', 'error']);
+export type Outcome = z.infer<typeof OutcomeSchema>;
+
+export const LogicFieldSchema = z.object({
+  name: z.string().min(1),
+  role: FieldRoleSchema,
+  rule: z.string().optional(),
+  value: z.string().optional(),
+  errorCode: z.string().optional(),
+});
+export type LogicField = z.infer<typeof LogicFieldSchema>;
+
+export const LogicStepSchema = z.object({
+  id: IdSchema,
+  category: StepCategorySchema,
+  title: NameSchema,
+  description: z.string().optional(),
+  technical: z.string().optional(),
+  edgeId: z.string().optional(),
+  subprocessId: z.string().optional(),
+  outcome: OutcomeSchema.optional(),
+  fields: z.array(LogicFieldSchema).optional(),
+  metadata: StringMapSchema.optional(),
+  confidence: ConfidenceSchema.optional(),
+});
+export type LogicStep = z.infer<typeof LogicStepSchema>;
+
+export const LogicTransitionSchema = z.object({
+  from: z.string(),
+  to: z.string(),
+  label: z.string().optional(),
+});
+export type LogicTransition = z.infer<typeof LogicTransitionSchema>;
+
+export const HandlerSchema = z.object({
+  edgeId: z.string(),
+  name: z.string().optional(),
+  description: z.string().optional(),
+  steps: z.array(LogicStepSchema).min(1),
+  transitions: z.array(LogicTransitionSchema),
+});
+export type Handler = z.infer<typeof HandlerSchema>;
+
+export const SubprocessSchema = z.object({
+  id: IdSchema,
+  name: NameSchema,
+  description: z.string().optional(),
+  steps: z.array(LogicStepSchema).min(1),
+  transitions: z.array(LogicTransitionSchema),
+});
+export type Subprocess = z.infer<typeof SubprocessSchema>;
+
+export const LogicSchema = z.object({
+  handlers: z.array(HandlerSchema).optional(),
+  subprocesses: z.array(SubprocessSchema).optional(),
+});
+export type Logic = z.infer<typeof LogicSchema>;
+
 export const SystemDocSchema = z.object({
   schemaVersion: z.literal(SCHEMA_VERSION),
   id: IdSchema,
@@ -131,5 +210,6 @@ export const SystemDocSchema = z.object({
   edges: z.array(SysEdgeSchema),
   flows: z.array(FlowSchema).optional(),
   layout: LayoutSchema.optional(),
+  logic: LogicSchema.optional(),
 });
 export type SystemDoc = z.infer<typeof SystemDocSchema>;

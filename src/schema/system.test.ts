@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import example from '../examples/example-system.json';
+import example from '../examples/example-system-v2.json';
 import { SystemDocSchema, type SysNode } from './system';
 
 function clone<T>(value: T): T {
@@ -7,7 +7,7 @@ function clone<T>(value: T): T {
 }
 
 describe('SystemDocSchema', () => {
-  it('accepts the example system (SPEC §10)', () => {
+  it('accepts the example system (SPEC §10 + §18.13)', () => {
     const result = SystemDocSchema.safeParse(example);
     expect(result.success).toBe(true);
   });
@@ -31,8 +31,8 @@ describe('SystemDocSchema', () => {
     expect(SystemDocSchema.safeParse(doc).success).toBe(false);
   });
 
-  it('rejects schemaVersion other than 1', () => {
-    expect(SystemDocSchema.safeParse({ ...example, schemaVersion: 2 }).success).toBe(false);
+  it('rejects schemaVersion other than 2 (older versions are migrated before parsing)', () => {
+    expect(SystemDocSchema.safeParse({ ...example, schemaVersion: 1 }).success).toBe(false);
   });
 
   it('rejects ids outside the kebab-case pattern', () => {

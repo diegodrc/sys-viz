@@ -16,7 +16,7 @@ function exampleDoc(): SystemDoc {
 
 function minimalDoc(overrides: Partial<SystemDoc> = {}): SystemDoc {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     id: 'mini',
     name: 'Mini',
     nodes: [
@@ -93,7 +93,7 @@ describe('errors (SPEC §4.2)', () => {
   });
 
   it('2. schemaVersion newer than supported gives a clear message', () => {
-    const [issue] = errorsOf(run({ ...minimalDoc(), schemaVersion: 2 }));
+    const [issue] = errorsOf(run({ ...minimalDoc(), schemaVersion: 3 }));
     expect(issue?.message).toContain('versão mais nova do sys-viz');
   });
 
