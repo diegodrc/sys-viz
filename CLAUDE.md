@@ -43,6 +43,7 @@ Versões **exatas** (sem `^`), registradas em `DECISIONS.md`.
 | Prompts de IA (texto literal — não alterar)                        | §9                             |
 | Exemplo (não alterar)                                              | §10                            |
 | Estilo de código / ESLint / Prettier                               | §16                            |
+| Lógica de negócio (v2, planejada — etapas 11–16)                   | §18 (+ §18.10 para mudanças)   |
 
 ## Arquitetura (SPEC §8)
 

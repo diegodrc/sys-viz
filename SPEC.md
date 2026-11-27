@@ -902,3 +902,412 @@ export function visibleAncestor(id: string, tree: TreeIndex, expanded: ReadonlyS
 - Alterar o sistema de exemplo (seção 10) ou os critérios de aceite (seção 13) para fazer um teste passar.
 - Desativar regras de lint, `strict` do TypeScript ou pular testes (`.skip`) para concluir uma etapa.
 - Implementar operações estruturais (criar/excluir nós ou arestas), fora de escopo pela seção 1.2.
+
+---
+
+## 18. Lógica de negócio (v2)
+
+> Extensão planejada. Implementar **depois** das etapas 1–10, seguindo a §18.11. Até lá, as seções 1–17 continuam valendo como estão; as alterações que esta seção exige nelas estão listadas na §18.10 e só devem ser aplicadas durante a implementação.
+
+### 18.1 Objetivo
+
+Responder **"o que acontece com esta requisição?"**: para cada ponto onde o sistema processa uma chamada ou mensagem, mostrar em fluxograma as validações, buscas de dados complementares, valores default, regras, decisões, gravações e processos engatilhados — e permitir seguir a requisição de um componente para o próximo.
+
+### 18.2 Conceitos
+
+- **Handler**: a lógica executada quando uma **aresta de entrada** chega ao seu nó de destino (um endpoint de API, uma mensagem consumida de uma fila, um registro lido por polling). Identificado pelo `id` da aresta. No máximo um handler por aresta. Passos de fluxo (§6.5) herdam a lógica automaticamente, pois referenciam arestas.
+- **Passo (step)**: caixa do fluxograma, com uma **categoria** (§18.3).
+- **Transição**: ligação dirigida entre dois passos do mesmo grafo; rotulada quando sai de um passo `decision` (ex.: "sim", "não", "aprovado").
+- **Subprocesso**: grafo de lógica nomeado e reutilizável (ex.: "Calcula aprovação"), definido uma vez e referenciado por passos de qualquer handler ou de outro subprocesso.
+- **Campo (field)**: dado de negócio usado por um passo, com papel `read`, `write` ou `validate`.
+- **Texto em dois níveis**: `title`/`description` em linguagem de negócio (legível por analistas); `technical` e `metadata.source` com o detalhe técnico (classe/método, SQL, código de erro, `repositorio/caminho:linha`).
+
+### 18.3 Categorias de passo
+
+| `category`   | Uso                                                            | Ícone (lucide)            | Cor                                 |
+| ------------ | -------------------------------------------------------------- | ------------------------- | ----------------------------------- |
+| `start`      | Requisição ou mensagem chega (exatamente um por grafo)         | `LogIn`                   | neutra                              |
+| `validation` | Validação de entrada ou de estado (ex.: CPF válido)            | `ShieldCheck`             | laranja                             |
+| `fetch`      | Busca de dados complementares (banco, outra API, cache)        | `DatabaseZap`             | azul                                |
+| `default`    | Valor padrão aplicado quando ausente                           | `SlidersHorizontal`       | neutra                              |
+| `rule`       | Regra ou cálculo de negócio                                    | `Gavel`                   | violeta                             |
+| `decision`   | Ponto de desvio; transições de saída rotuladas                 | `GitFork`                 | contorno tracejado, formato losango |
+| `persist`    | Gravação/alteração de dados                                    | `DatabaseBackup`          | azul                                |
+| `trigger`    | Processo engatilhado: publica mensagem, chama API, agenda job  | `Zap`                     | verde-água                          |
+| `end`        | Término; `outcome` `success` (verde) ou `error` (vermelho)     | `CircleCheck` / `CircleX` | verde / vermelho                    |
+
+Cores e ícones em `src/theme/stepCategories.ts`, com tokens para claro/escuro (mesmo padrão de `nodeTypes.ts`).
+
+### 18.4 Schema (extensão do §4.1)
+
+```ts
+type SchemaVersion = 1 | 2; // v1 continua importável (§18.10); exportação sempre em v2
+
+type StepCategory =
+  | 'start'
+  | 'validation'
+  | 'fetch'
+  | 'default'
+  | 'rule'
+  | 'decision'
+  | 'persist'
+  | 'trigger'
+  | 'end';
+
+interface LogicField {
+  name: string; // ex.: "pedido.prazo" (notação livre, de preferência entidade.campo)
+  role: 'read' | 'write' | 'validate';
+  rule?: string; // regra em linguagem de negócio (ex.: "obrigatório", ">= 700")
+  value?: string; // valor atribuído/default, sempre string (ex.: "30")
+  errorCode?: string; // código de erro quando a validação falha (ex.: "CPF_INVALIDO")
+}
+
+interface LogicStep {
+  id: string; // mesma regex de id; único entre TODOS os passos do documento
+  category: StepCategory;
+  title: string; // 1..80 chars, linguagem de negócio
+  description?: string; // linguagem de negócio
+  technical?: string; // detalhe técnico livre (classe.método, SQL, código de erro)
+  edgeId?: string; // aresta do mapa usada pelo passo (fetch, persist, trigger)
+  subprocessId?: string; // abre um subprocesso compartilhado
+  outcome?: 'success' | 'error'; // só em `end`; exibição padrão: success
+  fields?: LogicField[];
+  metadata?: Record<string, string>; // inclui metadata.source = "repo/caminho:linha; ..."
+  confidence?: Confidence;
+}
+
+interface LogicTransition {
+  from: string; // id de passo do mesmo grafo
+  to: string; // id de passo do mesmo grafo
+  label?: string; // esperado quando `from` é decision (ver avisos)
+}
+
+interface LogicGraph {
+  steps: LogicStep[]; // 1+
+  transitions: LogicTransition[];
+}
+
+interface Handler extends LogicGraph {
+  edgeId: string; // aresta de ENTRADA; o handler roda no nó `target` dela
+  name?: string; // ex.: "POST /validacoes"; se ausente, exibir edge.label ou metadata.endpoint
+  description?: string;
+}
+
+interface Subprocess extends LogicGraph {
+  id: string; // mesma regex de id; único entre subprocessos
+  name: string;
+  description?: string;
+}
+
+interface SystemDoc {
+  // ...campos do §4.1, com schemaVersion: 2
+  logic?: {
+    handlers?: Handler[];
+    subprocesses?: Subprocess[];
+  };
+}
+```
+
+### 18.5 Validação (extensão do §4.2)
+
+Erros:
+
+1. Handler com `edgeId` inexistente, ou dois handlers para a mesma aresta.
+2. `id` de passo duplicado (no documento inteiro); `id` de subprocesso duplicado.
+3. Transição com `from`/`to` que não seja passo do mesmo grafo.
+4. Passo com `edgeId` ou `subprocessId` inexistente.
+5. Grafo sem exatamente um passo `start`.
+6. `outcome` em passo que não é `end`.
+7. Ciclo de subprocessos (A referencia B que referencia A, direta ou indiretamente).
+
+Avisos:
+
+1. Passo `decision` com menos de duas transições de saída, ou transição de saída de `decision` sem `label`.
+2. Grafo sem nenhum passo `end`.
+3. Passo inalcançável a partir do `start`.
+4. Subprocesso não referenciado por nenhum passo.
+5. Em um handler, passo com `edgeId` cuja aresta não sai do nó do handler (nem de um descendente dele).
+6. Nó com pelo menos um handler cuja aresta de saída não é referenciada por nenhum passo de seus handlers (mensagem: `A aresta "e14" sai de "API Validação" mas não aparece em nenhuma lógica desse componente.`).
+
+### 18.6 Visualização no mapa
+
+- Aresta com handler: ícone `Workflow` ao lado do rótulo; no painel de detalhes da aresta, botão **"Abrir lógica"**.
+- Nó com handlers: badge com o número de handlers (grupo colapsado soma os descendentes). O painel do nó lista os handlers (clicar abre a lógica).
+- Painel de detalhes da aresta: seção **"Usada em"** listando os passos (handler › passo) que a referenciam via `edgeId`.
+- Passo a passo do fluxo (§6.5): se a aresta do passo atual tem handler, botão **"Ver lógica"** na barra.
+
+### 18.7 Tela de lógica (drill-down)
+
+- Abrir uma lógica **substitui o canvas do mapa** pelo fluxograma (mesmo React Flow, outro conjunto de nós). A topbar mostra o **breadcrumb** (trilha) e o botão **"Voltar ao mapa"**. `Esc` volta um nível da trilha; no primeiro nível, volta ao mapa.
+- **Trilha**: lista de níveis `{ kind: 'handler', edgeId } | { kind: 'subprocess', id, fromStepId }`. Rótulos: `<nome do nó> › <nome do handler> › <subprocesso> …`. Clicar num nível volta a ele. A trilha não é persistida.
+- **Layout**: ELK `layered`, direção `DOWN`, sem posições salvas nem arrasto (somente leitura). Recalcular ao abrir cada nível.
+- **Renderização dos passos**: cartão com ícone e cor da categoria (§18.3) e `title`; `decision` em losango (ou hexágono, se o texto não couber), com rótulos nas transições de saída; `end` verde/vermelho conforme `outcome`; `confidence: "assumed"` com borda tracejada. Chips no cartão:
+  - `edgeId` → chip com o rótulo curto da aresta; clicar volta ao mapa, expande ancestrais e destaca a aresta (pulso de 2 s);
+  - `subprocessId` → ícone de expandir; clicar (ou duplo clique no cartão) abre o subprocesso como novo nível da trilha;
+  - `trigger` com `edgeId` → botão **"Seguir → <destino>"** (§18.8).
+- **Filtro por categoria** (multiseleção, na topbar da tela de lógica): passos fora do filtro com opacidade 25%.
+- **Painel de detalhes do passo**: seção **Negócio** (`title`, `description`, tabela de `fields`: nome, papel, regra, valor, código de erro); seção **Técnico** (`technical` e `metadata`, com `source` em fonte mono); seção **Ligações** (aresta, subprocesso). O painel de subprocesso mostra **"Usado em"** (handler › passo, clicável).
+- **Edição** (mesma regra do §6.6): editáveis `title`, `description`, `technical`, `category`, `outcome` (só em `end`), `fields` (linhas com adicionar/remover), `metadata`, `confidence`; nome e descrição de handlers e subprocessos. Não editáveis: `id`, `edgeId`, `subprocessId` e transições. Nenhuma operação estrutural (criar/excluir passos, transições, handlers ou subprocessos).
+
+### 18.8 Seguir a requisição
+
+Ao clicar em "Seguir" num passo `trigger` com `edgeId = e`:
+
+1. Se `e` tem handler → abrir esse handler.
+2. Senão, se o destino de `e` é um nó de **passagem** (`type` em `exchange`, `queue`, `topic`, `broker`, `gateway`, `ingress`, `cdn`), percorrer suas arestas de saída (busca em largura, profundidade máxima 10, sem repetir aresta) até encontrar arestas com handler.
+3. Se houver fluxo selecionado, preferir arestas que pertencem a ele.
+4. Um resultado → abre direto. Vários → menu para escolher. Nenhum → botão desabilitado com o tooltip "Lógica de <destino> ainda não mapeada".
+
+O handler aberto é **acrescentado** à trilha (o breadcrumb vira o caminho da requisição). Implementar como função pura `followTrigger(doc, edgeId, flowId?): string[]` (ids das arestas com handler) em `src/graph/followTrigger.ts`.
+
+### 18.9 Busca por campo
+
+A busca da topbar (§6.4) passa a ter dois grupos de resultado: **Componentes** (como hoje) e **Campos**. Em Campos, cada resultado mostra `field.name`, o papel, o `title` do passo e o caminho (`<nó> › <handler>` ou `Subprocesso <nome>`). Selecionar abre a lógica correspondente com o passo selecionado e destacado. Busca case/acento-insensitive sobre `fields[].name`.
+
+### 18.10 Alterações em seções existentes (aplicar na implementação)
+
+- **§4.1/§4.2/§4.5**: `schemaVersion` aceita `1 | 2`; a migração `1 → 2` apenas troca a versão (documentos v1 não têm `logic`). Exportação, backup e prompts usam v2. Arquivos com versão > 2 geram o erro de versão mais nova.
+- **§9.1**: quarta aba **"Mapear lógica"**, habilitada só com sistema aberto, mostrando o prompt da §18.12 com o JSON atual embutido; instruções: "1. Abra um agente de IA com acesso aos repositórios. 2. Cole o prompt e diga qual fluxo ou endpoint mapear. 3. Confirme a lógica proposta. 4. Cole o JSON final em Importar."
+- **§9.2 e §9.4 (texto literal)**: trocar `"schemaVersion" é 1` por `"schemaVersion" é 2` e acrescentar, após a linha `- Não inclua o campo "layout".`, a linha `- Não inclua o campo "logic"; a lógica de negócio é mapeada depois, com o prompt "Mapear lógica".`
+- **§9.3 (texto literal)**: trocar `"schemaVersion": 1` por `"schemaVersion": 2` e acrescentar à seção "Regras obrigatórias" a linha `- Mantenha o campo "logic" como está. Se remover uma aresta ou nó, remova também os handlers e as referências (edgeId) que dependem dele, avisando o usuário.`
+- **§10**: o exemplo v1 permanece intacto como fixture. Criar `src/examples/example-system-v2.json` = exemplo da §10 com `"schemaVersion": 2` e o campo `logic` da §18.13; é ele que a primeira execução carrega e que os prompts usam como `{{EXAMPLE_JSON}}`.
+- **§13**: acrescentar os critérios L1–L12 (§18.14).
+
+### 18.11 Ordem de implementação
+
+11. Schema v2 (`logic`), migração, validação §18.5, exemplo v2 + testes.
+12. Funções puras: índice de lógica (handlers por aresta, "usado em", contagem por nó), `followTrigger`, busca por campo + testes.
+13. Indicadores no mapa (§18.6) e "Ver lógica" no passo a passo.
+14. Tela de lógica: drill-down, trilha, layout ELK `DOWN`, renderização por categoria, filtro, painel e edição (§18.7).
+15. "Seguir" (§18.8) e busca por campo (§18.9).
+16. Aba "Mapear lógica" + ajustes nos prompts (§18.10) e verificação de L1–L12.
+
+### 18.12 Prompt "Mapear lógica" (texto literal)
+
+Placeholders: `{{JSON_SCHEMA}}` (schema v2) e `{{CURRENT_JSON}}` (documento atual sem `layout`).
+
+````text
+Você é um analista de sistemas ajudando a mapear a LÓGICA DE NEGÓCIO de um sistema na ferramenta "sys-viz". Você tem acesso aos repositórios do sistema. Abaixo está o documento JSON atual, que já descreve a arquitetura (nós, arestas e fluxos). Seu objetivo é descobrir no código o que acontece em cada ponto que processa uma requisição ou mensagem e devolver o documento COMPLETO com a seção "logic" preenchida ou ampliada.
+
+## Escopo
+- Fale no idioma do usuário.
+- Pergunte primeiro o que mapear: um fluxo inteiro (campo "flows") ou handlers específicos. Um handler é a lógica executada quando uma aresta de ENTRADA chega ao seu nó de destino (um endpoint de API, uma mensagem consumida, um registro lido por polling) e é identificado pelo "id" dessa aresta.
+- Para um fluxo, os handlers são as arestas do fluxo cujo destino executa código (api, worker, consumer, application, frontend, component). Ignore destinos de passagem (exchange, queue, topic, broker, gateway, ingress, cdn) e bancos.
+- Não altere nada fora do escopo combinado.
+
+## Como investigar
+- Leia o código, não execute nada e não altere nenhum arquivo.
+- Para cada handler, encontre o ponto de entrada (controller/action, handler de mensagem, loop do worker) e siga as chamadas por serviços e repositórios na ordem em que executam.
+- Registre como passos apenas o que importa para o negócio: validações, buscas de dados complementares, valores default, regras e cálculos, decisões (if/switch que mudam o resultado), gravações, processos engatilhados (publicar mensagem, chamar API, agendar job) e os retornos de sucesso e erro. Ignore infraestrutura sem efeito de negócio (logs, injeção de dependência, mapeamentos triviais), a menos que o usuário peça.
+- Quando um bloco de lógica for reutilizado por mais de um handler, ou tiver mais de 8 passos, transforme-o em subprocesso em "logic.subprocesses" e referencie-o com "subprocessId". Reutilize subprocessos existentes no documento em vez de criar versões parecidas.
+
+## Categorias de passo ("category")
+- start: a requisição ou mensagem chega (exatamente um por handler e por subprocesso).
+- validation: valida entrada ou estado.
+- fetch: busca dados complementares (banco, outra API, cache).
+- default: aplica valor padrão quando o dado está ausente.
+- rule: regra ou cálculo de negócio.
+- decision: ponto de desvio; cada transição de saída tem "label" (ex.: "sim", "não", "aprovado").
+- persist: grava ou altera dados.
+- trigger: processo engatilhado (publica mensagem, chama outra API, agenda job).
+- end: término, com "outcome" "success" ou "error" (ex.: retorno 200, 422 com código de erro, ack da mensagem).
+
+## Regras de modelagem
+- "title" e "description" em linguagem de negócio, legíveis por quem não conhece o código (ex.: "Valida se o cliente está ativo"). O detalhe técnico vai em "technical" (classe.método, operação SQL, tabela, código de erro HTTP e de negócio).
+- Rastreabilidade: registre a evidência de cada passo em metadata.source no formato "repositorio/caminho:linha" (várias separadas por "; ").
+- Passos fetch, persist e trigger devem apontar em "edgeId" para a aresta de SAÍDA do componente que representa aquela chamada. Se a chamada não existir no mapa, pergunte ao usuário e, com a confirmação dele, acrescente a aresta (e o nó, se preciso) seguindo as regras de modelagem do documento.
+- "fields": liste os dados de negócio usados pelo passo quando o código deixar isso claro, com "name" (de preferência entidade.campo, ex.: "pedido.prazo"), "role" ("read", "write" ou "validate") e, quando houver, "rule" (em linguagem de negócio), "value" (sempre string) e "errorCode". Nunca inclua dados reais de clientes, senhas ou outros segredos.
+- "confidence": "assumed" para o que foi inferido sem evidência clara no código.
+- ids: minúsculos, kebab-case, únicos entre TODOS os passos do documento (use um prefixo por handler, ex.: "val-busca-pedido"). Subprocessos têm ids próprios (ex.: "sp-calcula-aprovacao").
+- Transições ligam passos do mesmo handler ou subprocesso, na ordem de execução.
+
+## Confirmação
+Antes de gerar o JSON, apresente para cada handler (e subprocesso) um fluxograma em texto: passos numerados com categoria, título e evidência entre parênteses, e os desvios das decisões. Liste as dúvidas (no máximo 5 por mensagem): trechos que você não conseguiu seguir, decisões com regra pouco clara, chamadas sem aresta no mapa. Repita até não haver dúvidas que mudem o resultado e peça a confirmação do usuário.
+
+## Regras obrigatórias
+- NUNCA altere o "id" de nós, arestas, fluxos, handlers, passos ou subprocessos existentes.
+- Mantenha intacto tudo o que está fora do escopo, inclusive handlers já mapeados (só os altere se o usuário pedir).
+- Não inclua o campo "layout".
+
+## Saída final
+Após a confirmação, gere o documento COMPLETO (não um diff) com "schemaVersion": 2. Se você puder criar arquivos, salve-o como sysviz-<id-do-sistema>.json na raiz do workspace e informe o caminho; caso contrário, responda com UM ÚNICO bloco ```json. Antes de entregar, verifique: ids únicos, toda transição liga passos do mesmo grafo, todo "edgeId" e "subprocessId" existe, cada grafo tem exatamente um "start" e não há segredos no conteúdo.
+
+Se o usuário colar uma lista de erros de validação do sys-viz, corrija e devolva o JSON completo novamente, mantendo os ids.
+
+## JSON Schema
+```json
+{{JSON_SCHEMA}}
+```
+
+## Documento atual
+```json
+{{CURRENT_JSON}}
+```
+
+Comece resumindo em até 5 linhas os fluxos e componentes do documento atual e pergunte o que mapear.
+````
+
+### 18.13 Exemplo de lógica
+
+Campo `logic` acrescentado ao exemplo da §10 (com `"schemaVersion": 2`) para formar `example-system-v2.json`. O conteúdo é ilustrativo.
+
+```json
+{
+  "handlers": [
+    {
+      "edgeId": "e11",
+      "name": "POST /validacoes",
+      "description": "Valida o pedido e publica o resultado.",
+      "steps": [
+        { "id": "val-inicio", "category": "start", "title": "Requisição de validação chega" },
+        {
+          "id": "val-campos",
+          "category": "validation",
+          "title": "Valida campos obrigatórios",
+          "technical": "ValidacaoRequestValidator (FluentValidation)",
+          "fields": [
+            { "name": "pedido.id", "role": "validate", "rule": "obrigatório", "errorCode": "CAMPOS_INVALIDOS" }
+          ]
+        },
+        { "id": "val-campos-ok", "category": "decision", "title": "Dados válidos?" },
+        {
+          "id": "val-422",
+          "category": "end",
+          "outcome": "error",
+          "title": "Retorna erro de validação",
+          "technical": "HTTP 422 CAMPOS_INVALIDOS"
+        },
+        {
+          "id": "val-busca-pedido",
+          "category": "fetch",
+          "title": "Busca dados do pedido e do cliente",
+          "edgeId": "e12",
+          "technical": "PedidoRepository.ObterPorId() — SELECT em tb_pedido",
+          "fields": [
+            { "name": "pedido.valor", "role": "read" },
+            { "name": "cliente.score", "role": "read" }
+          ]
+        },
+        {
+          "id": "val-prazo",
+          "category": "default",
+          "title": "Sem prazo informado, usa 30 dias",
+          "fields": [{ "name": "pedido.prazo", "role": "write", "rule": "quando nulo", "value": "30" }]
+        },
+        {
+          "id": "val-aprovacao",
+          "category": "rule",
+          "title": "Calcula aprovação",
+          "subprocessId": "sp-calcula-aprovacao"
+        },
+        { "id": "val-aprovado", "category": "decision", "title": "Pedido aprovado?" },
+        { "id": "val-publica-aprovacao", "category": "trigger", "title": "Publica aprovação", "edgeId": "e13" },
+        { "id": "val-publica-pendencia", "category": "trigger", "title": "Publica pendência", "edgeId": "e14" },
+        {
+          "id": "val-fim",
+          "category": "end",
+          "outcome": "success",
+          "title": "Retorna aceito",
+          "technical": "HTTP 202"
+        }
+      ],
+      "transitions": [
+        { "from": "val-inicio", "to": "val-campos" },
+        { "from": "val-campos", "to": "val-campos-ok" },
+        { "from": "val-campos-ok", "to": "val-422", "label": "não" },
+        { "from": "val-campos-ok", "to": "val-busca-pedido", "label": "sim" },
+        { "from": "val-busca-pedido", "to": "val-prazo" },
+        { "from": "val-prazo", "to": "val-aprovacao" },
+        { "from": "val-aprovacao", "to": "val-aprovado" },
+        { "from": "val-aprovado", "to": "val-publica-aprovacao", "label": "sim" },
+        { "from": "val-aprovado", "to": "val-publica-pendencia", "label": "não" },
+        { "from": "val-publica-aprovacao", "to": "val-fim" },
+        { "from": "val-publica-pendencia", "to": "val-fim" }
+      ]
+    },
+    {
+      "edgeId": "e17",
+      "name": "Mensagem de aprovação (rk-a)",
+      "steps": [
+        { "id": "ca-inicio", "category": "start", "title": "Mensagem de aprovação chega" },
+        {
+          "id": "ca-grava",
+          "category": "persist",
+          "title": "Grava pedido como aprovado",
+          "edgeId": "e19",
+          "fields": [{ "name": "pedido.status", "role": "write", "value": "APROVADO" }]
+        },
+        {
+          "id": "ca-fim",
+          "category": "end",
+          "outcome": "success",
+          "title": "Confirma a mensagem",
+          "technical": "BasicAck"
+        }
+      ],
+      "transitions": [
+        { "from": "ca-inicio", "to": "ca-grava" },
+        { "from": "ca-grava", "to": "ca-fim" }
+      ]
+    }
+  ],
+  "subprocesses": [
+    {
+      "id": "sp-calcula-aprovacao",
+      "name": "Calcula aprovação",
+      "description": "Aprova pedidos de clientes com bom score e dentro do limite.",
+      "steps": [
+        { "id": "ap-inicio", "category": "start", "title": "Início" },
+        {
+          "id": "ap-score",
+          "category": "decision",
+          "title": "Score do cliente é suficiente?",
+          "fields": [{ "name": "cliente.score", "role": "validate", "rule": ">= 700" }]
+        },
+        {
+          "id": "ap-limite",
+          "category": "decision",
+          "title": "Valor dentro do limite?",
+          "fields": [{ "name": "pedido.valor", "role": "validate", "rule": "<= limite de crédito do cliente" }]
+        },
+        { "id": "ap-aprovado", "category": "end", "outcome": "success", "title": "Aprovado" },
+        { "id": "ap-pendente", "category": "end", "outcome": "success", "title": "Pendente de análise" }
+      ],
+      "transitions": [
+        { "from": "ap-inicio", "to": "ap-score" },
+        { "from": "ap-score", "to": "ap-limite", "label": "sim" },
+        { "from": "ap-score", "to": "ap-pendente", "label": "não" },
+        { "from": "ap-limite", "to": "ap-aprovado", "label": "sim" },
+        { "from": "ap-limite", "to": "ap-pendente", "label": "não" }
+      ]
+    }
+  ]
+}
+```
+
+### 18.14 Critérios de aceite (lógica)
+
+Usando `example-system-v2.json`:
+
+| #   | Dado / Quando                                                                | Então                                                                                                                                                                                       |
+| --- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| L1  | Importar o exemplo v1 (§10)                                                  | Importa sem erros; ao exportar, `schemaVersion` é 2 e não há `logic`.                                                                                                                       |
+| L2  | Validar o exemplo v2                                                         | Nenhum erro e nenhum aviso.                                                                                                                                                                 |
+| L3  | Mapa totalmente expandido                                                    | Arestas `e11` e `e17` com ícone de lógica; `api-validacao` e `consumer-a` com badge 1; na visão macro, `sistema-validacao` com badge 2.                                                      |
+| L4  | Painel da aresta `e11` → "Abrir lógica"                                      | O canvas mostra 11 passos e 11 transições; breadcrumb `API Validação › POST /validacoes`; `val-campos-ok` em losango com saídas "sim"/"não".                                                 |
+| L5  | Clicar no chip `e12` de `val-busca-pedido`                                   | Volta ao mapa com a aresta `e12` destacada e seus ancestrais expandidos.                                                                                                                    |
+| L6  | Abrir `val-aprovacao`                                                        | Novo nível na trilha (`… › Calcula aprovação`) com 5 passos; o painel do subprocesso mostra "Usado em: POST /validacoes › Calcula aprovação". `Esc` volta ao handler.                       |
+| L7  | "Seguir" em `val-publica-aprovacao`                                          | `followTrigger(doc, 'e13')` retorna `['e17']`; abre a lógica do Consumer A e a trilha vira `API Validação › POST /validacoes › Consumer A › Mensagem de aprovação (rk-a)`.                  |
+| L8  | "Seguir" em `val-publica-pendencia`                                          | `followTrigger(doc, 'e14')` retorna `[]`; botão desabilitado com "Lógica de Consumer B ainda não mapeada".                                                                                  |
+| L9  | Fluxo "Processamento assíncrono", passo 4 (`e11`) e passo 8 (`e17`)          | Botão "Ver lógica" visível nesses passos e ausente no passo 5 (`e12`).                                                                                                                      |
+| L10 | Buscar "prazo"                                                               | O grupo Campos mostra `pedido.prazo` (write, `val-prazo`, `API Validação › POST /validacoes`); selecionar abre a lógica com `val-prazo` destacado.                                           |
+| L11 | Filtro de categoria `trigger` na lógica de `e11`                             | Só `val-publica-aprovacao` e `val-publica-pendencia` sem esmaecer.                                                                                                                          |
+| L12 | Editar o `title` de `val-prazo` e salvar                                     | Persistido após reload e no JSON exportado; `id`, `edgeId` e transições não editáveis.                                                                                                      |
+
+### 18.15 Fora de escopo (lógica)
+
+- Criar, excluir ou religar passos, transições, handlers ou subprocessos pela interface.
+- Arrastar caixas ou salvar posições no fluxograma de lógica.
+- Simular a execução com valores de entrada.
+- Detectar automaticamente que a lógica ficou desatualizada em relação ao código.
+- Comparar versões da lógica (diff).
